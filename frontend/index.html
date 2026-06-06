@@ -187,7 +187,9 @@
     </table>
 
     <script>
-        const API_BASE_URL = "http://127.0.0.1:8000";
+        const API_BASE_URL = window.location.hostname === "127.0.0.1" 
+            ? "http://127.0.0.1:8000" 
+            : `http://${window.location.hostname}:8000`;
 
         const transactionForm = document.getElementById("transaction-form");
         const message = document.getElementById("message");
