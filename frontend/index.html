@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaisaLog</title>
+</head>
+<body>
+    <h1>PaisaLog Transactions</h1>
+
+    <form id="transaction-form">
+        <div>
+            <label for="date">Date</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+
+        <div>
+            <label for="amount">Amount</label>
+            <input type="number" id="amount" name="amount" step="0.01" required>
+        </div>
+
+        <div>
+            <label for="type">Type</label>
+            <select id="type" name="type" required>
+                <option value="debit">debit</option>
+                <option value="credit">credit</option>
+                <option value="deposit">deposit</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="category">Category</label>
+            <input type="text" id="category" name="category" required>
+        </div>
+
+        <div>
+            <label for="note">Note</label>
+            <input type="text" id="note" name="note">
+        </div>
+
+        <button type="submit">Save Transaction</button>
+    </form>
+
+    <p id="message"></p>
+
+    <button type="button" id="load-transactions">Load Transactions</button>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Note</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody id="transactions-table-body"></tbody>
+    </table>
+
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:8000";
+
+        const transactionForm = document.getElementById("transaction-form");
+        const message = document.getElementById("message");
+        const loadTransactionsButton = document.getElementById("load-transactions");
+        const transactionsTableBody = document.getElementById("transactions-table-body");
+
+        transactionForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const transaction = {
+                date: document.getElementById("date").value,
+                amount: Number(document.getElementById("amount").value),
+                type: document.getElementById("type").value,
+                category: document.getElementById("category").value,
+                note: document.getElementById("note").value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/transactions`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(transaction)
+                });
+
+                if (!response.ok) {
+                    throw new Error("Could not save transaction");
+                }
+
+                message.textContent = "Transaction saved successfully.";
+                transactionForm.reset();
+                loadTransactions();
+            } catch (error) {
+                message.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        loadTransactionsButton.addEventListener("click", loadTransactions);
+
+        async function loadTransactions() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/transactions`);
+
+                if (!response.ok) {
+                    throw new Error("Could not load transactions");
+                }
+
+                const transactions = await response.json();
+                transactionsTableBody.innerHTML = "";
+
+                for (const transaction of transactions) {
+                    const row = document.createElement("tr");
+
+                    row.innerHTML = `
+                        <td>${transaction.id}</td>
+                        <td>${transaction.date}</td>
+                        <td>${transaction.amount}</td>
+                        <td>${transaction.type}</td>
+                        <td>${transaction.category}</td>
+                        <td>${transaction.note || ""}</td>
+                        <td>${transaction.created_at}</td>
+                    `;
+
+                    transactionsTableBody.appendChild(row);
+                }
+            } catch (error) {
+                message.textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
