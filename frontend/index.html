@@ -60,6 +60,104 @@
         <tbody id="transactions-table-body"></tbody>
     </table>
 
+    <h1>Daily Balance</h1>
+
+    <form id="daily-balance-form">
+        <div>
+            <label for="daily-balance-date">Date</label>
+            <input type="date" id="daily-balance-date" name="date" required>
+        </div>
+
+        <div>
+            <label for="opening-balance">Opening Balance</label>
+            <input type="number" id="opening-balance" name="opening_balance" step="0.01" required>
+        </div>
+
+        <div>
+            <label for="closing-balance">Closing Balance</label>
+            <input type="number" id="closing-balance" name="closing_balance" step="0.01" required>
+        </div>
+
+        <div>
+            <label for="daily-balance-note">Note</label>
+            <input type="text" id="daily-balance-note" name="note">
+        </div>
+
+        <button type="submit">Save Daily Balance</button>
+    </form>
+
+    <p id="daily-balance-message"></p>
+
+    <button type="button" id="load-daily-balances">Load Daily Balances</button>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Opening Balance</th>
+                <th>Closing Balance</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody id="daily-balances-table-body"></tbody>
+    </table>
+
+    <h1>Social Ledger</h1>
+
+    <form id="social-ledger-form">
+        <div>
+            <label for="social-ledger-date">Date</label>
+            <input type="date" id="social-ledger-date" name="date" required>
+        </div>
+
+        <div>
+            <label for="social-ledger-amount">Amount</label>
+            <input type="number" id="social-ledger-amount" name="amount" step="0.01" required>
+        </div>
+
+        <div>
+            <label for="direction">Direction</label>
+            <select id="direction" name="direction" required>
+                <option value="i_paid">i_paid</option>
+                <option value="they_paid">they_paid</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="person-name">Person Name</label>
+            <input type="text" id="person-name" name="person_name" required>
+        </div>
+
+        <div>
+            <label for="reason">Reason</label>
+            <input type="text" id="reason" name="reason">
+        </div>
+
+        <button type="submit">Save Entry</button>
+    </form>
+
+    <p id="social-ledger-message"></p>
+
+    <button type="button" id="load-social-ledger">Load Entries</button>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Direction</th>
+                <th>Person Name</th>
+                <th>Reason</th>
+                <th>Settled</th>
+                <th>Settled At</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="social-ledger-table-body"></tbody>
+    </table>
+
     <script>
         const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -67,6 +165,14 @@
         const message = document.getElementById("message");
         const loadTransactionsButton = document.getElementById("load-transactions");
         const transactionsTableBody = document.getElementById("transactions-table-body");
+        const dailyBalanceForm = document.getElementById("daily-balance-form");
+        const dailyBalanceMessage = document.getElementById("daily-balance-message");
+        const loadDailyBalancesButton = document.getElementById("load-daily-balances");
+        const dailyBalancesTableBody = document.getElementById("daily-balances-table-body");
+        const socialLedgerForm = document.getElementById("social-ledger-form");
+        const socialLedgerMessage = document.getElementById("social-ledger-message");
+        const loadSocialLedgerButton = document.getElementById("load-social-ledger");
+        const socialLedgerTableBody = document.getElementById("social-ledger-table-body");
 
         transactionForm.addEventListener("submit", async function (event) {
             event.preventDefault();
@@ -101,6 +207,71 @@
         });
 
         loadTransactionsButton.addEventListener("click", loadTransactions);
+        loadDailyBalancesButton.addEventListener("click", loadDailyBalances);
+        loadSocialLedgerButton.addEventListener("click", loadSocialLedgerEntries);
+
+        dailyBalanceForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const dailyBalance = {
+                date: document.getElementById("daily-balance-date").value,
+                opening_balance: Number(document.getElementById("opening-balance").value),
+                closing_balance: Number(document.getElementById("closing-balance").value),
+                note: document.getElementById("daily-balance-note").value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/daily-balance`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(dailyBalance)
+                });
+
+                if (!response.ok) {
+                    throw new Error("Could not save daily balance");
+                }
+
+                dailyBalanceMessage.textContent = "Daily balance saved successfully.";
+                dailyBalanceForm.reset();
+                loadDailyBalances();
+            } catch (error) {
+                dailyBalanceMessage.textContent = `Error: ${error.message}`;
+            }
+        });
+
+        socialLedgerForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const socialLedgerEntry = {
+                date: document.getElementById("social-ledger-date").value,
+                amount: Number(document.getElementById("social-ledger-amount").value),
+                direction: document.getElementById("direction").value,
+                person_name: document.getElementById("person-name").value,
+                reason: document.getElementById("reason").value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/social-ledger`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(socialLedgerEntry)
+                });
+
+                if (!response.ok) {
+                    throw new Error("Could not save social ledger entry");
+                }
+
+                socialLedgerMessage.textContent = "Social ledger entry saved successfully.";
+                socialLedgerForm.reset();
+                loadSocialLedgerEntries();
+            } catch (error) {
+                socialLedgerMessage.textContent = `Error: ${error.message}`;
+            }
+        });
 
         async function loadTransactions() {
             try {
@@ -130,6 +301,86 @@
                 }
             } catch (error) {
                 message.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function loadDailyBalances() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/daily-balance`);
+
+                if (!response.ok) {
+                    throw new Error("Could not load daily balances");
+                }
+
+                const dailyBalances = await response.json();
+                dailyBalancesTableBody.innerHTML = "";
+
+                for (const dailyBalance of dailyBalances) {
+                    const row = document.createElement("tr");
+
+                    row.innerHTML = `
+                        <td>${dailyBalance.id}</td>
+                        <td>${dailyBalance.date}</td>
+                        <td>${dailyBalance.opening_balance}</td>
+                        <td>${dailyBalance.closing_balance}</td>
+                        <td>${dailyBalance.note || ""}</td>
+                    `;
+
+                    dailyBalancesTableBody.appendChild(row);
+                }
+            } catch (error) {
+                dailyBalanceMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function loadSocialLedgerEntries() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/social-ledger`);
+
+                if (!response.ok) {
+                    throw new Error("Could not load social ledger entries");
+                }
+
+                const socialLedgerEntries = await response.json();
+                socialLedgerTableBody.innerHTML = "";
+
+                for (const entry of socialLedgerEntries) {
+                    const row = document.createElement("tr");
+                    const settleButton = entry.is_settled ? "" : `<button type="button" onclick="settleSocialLedgerEntry(${entry.id})">Settle</button>`;
+
+                    row.innerHTML = `
+                        <td>${entry.id}</td>
+                        <td>${entry.date}</td>
+                        <td>${entry.amount}</td>
+                        <td>${entry.direction}</td>
+                        <td>${entry.person_name}</td>
+                        <td>${entry.reason || ""}</td>
+                        <td>${entry.is_settled ? "Yes" : "No"}</td>
+                        <td>${entry.settled_at || ""}</td>
+                        <td>${settleButton}</td>
+                    `;
+
+                    socialLedgerTableBody.appendChild(row);
+                }
+            } catch (error) {
+                socialLedgerMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function settleSocialLedgerEntry(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/social-ledger/${id}/settle`, {
+                    method: "PATCH"
+                });
+
+                if (!response.ok) {
+                    throw new Error("Could not settle social ledger entry");
+                }
+
+                socialLedgerMessage.textContent = "Social ledger entry settled successfully.";
+                loadSocialLedgerEntries();
+            } catch (error) {
+                socialLedgerMessage.textContent = `Error: ${error.message}`;
             }
         }
     </script>
