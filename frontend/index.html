@@ -158,6 +158,33 @@
         <tbody id="social-ledger-table-body"></tbody>
     </table>
 
+    <h1>Statement</h1>
+
+    <button type="button" id="statement-7-days">7 Days</button>
+    <button type="button" id="statement-15-days">15 Days</button>
+    <button type="button" id="statement-30-days">30 Days</button>
+
+    <p id="statement-message"></p>
+
+    <h2>Summary</h2>
+    <div id="statement-summary"></div>
+
+    <h2>Transactions</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Note</th>
+                <th>Created At</th>
+            </tr>
+        </thead>
+        <tbody id="statement-transactions-table-body"></tbody>
+    </table>
+
     <script>
         const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -173,6 +200,12 @@
         const socialLedgerMessage = document.getElementById("social-ledger-message");
         const loadSocialLedgerButton = document.getElementById("load-social-ledger");
         const socialLedgerTableBody = document.getElementById("social-ledger-table-body");
+        const statement7DaysButton = document.getElementById("statement-7-days");
+        const statement15DaysButton = document.getElementById("statement-15-days");
+        const statement30DaysButton = document.getElementById("statement-30-days");
+        const statementMessage = document.getElementById("statement-message");
+        const statementSummary = document.getElementById("statement-summary");
+        const statementTransactionsTableBody = document.getElementById("statement-transactions-table-body");
 
         transactionForm.addEventListener("submit", async function (event) {
             event.preventDefault();
@@ -209,6 +242,15 @@
         loadTransactionsButton.addEventListener("click", loadTransactions);
         loadDailyBalancesButton.addEventListener("click", loadDailyBalances);
         loadSocialLedgerButton.addEventListener("click", loadSocialLedgerEntries);
+        statement7DaysButton.addEventListener("click", function () {
+            loadStatement(7);
+        });
+        statement15DaysButton.addEventListener("click", function () {
+            loadStatement(15);
+        });
+        statement30DaysButton.addEventListener("click", function () {
+            loadStatement(30);
+        });
 
         dailyBalanceForm.addEventListener("submit", async function (event) {
             event.preventDefault();
@@ -381,6 +423,48 @@
                 loadSocialLedgerEntries();
             } catch (error) {
                 socialLedgerMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function loadStatement(days) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/statement?range=${days}`);
+
+                if (!response.ok) {
+                    throw new Error("Could not load statement");
+                }
+
+                const statement = await response.json();
+
+                statementMessage.textContent = "";
+                statementSummary.innerHTML = `
+                    <p>Date From: ${statement.date_from}</p>
+                    <p>Date To: ${statement.date_to}</p>
+                    <p>Total Debit: ${statement.total_debit}</p>
+                    <p>Total Credit: ${statement.total_credit}</p>
+                    <p>Total Deposit: ${statement.total_deposit}</p>
+                    <p>Net: ${statement.net}</p>
+                `;
+
+                statementTransactionsTableBody.innerHTML = "";
+
+                for (const transaction of statement.transactions) {
+                    const row = document.createElement("tr");
+
+                    row.innerHTML = `
+                        <td>${transaction.id}</td>
+                        <td>${transaction.date}</td>
+                        <td>${transaction.amount}</td>
+                        <td>${transaction.type}</td>
+                        <td>${transaction.category}</td>
+                        <td>${transaction.note || ""}</td>
+                        <td>${transaction.created_at}</td>
+                    `;
+
+                    statementTransactionsTableBody.appendChild(row);
+                }
+            } catch (error) {
+                statementMessage.textContent = `Error: ${error.message}`;
             }
         }
     </script>

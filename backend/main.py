@@ -1,8 +1,8 @@
-from fastapi.middleware.cors import CORSMiddleware
-
 from contextlib import asynccontextmanager
+from datetime import date, timedelta
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from .database import create_tables, get_db_connection
 from .models import (
@@ -108,6 +108,59 @@ def get_transaction(transaction_id: int):
         )
 
     return dict(transaction)
+
+
+@app.get("/statement")
+def get_statement(statement_range: int = Query(7, alias="range")):
+    if statement_range not in [7, 15, 30]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Range must be 7, 15, or 30",
+        )
+
+    date_to = date.today()
+    date_from = date_to - timedelta(days=statement_range)
+
+    connection = get_db_connection()
+    transactions = connection.execute(
+        """
+        SELECT id, date, amount, type, category, note, created_at
+        FROM transactions
+        WHERE date >= ? AND date <= ?
+        ORDER BY date DESC, id DESC
+        """,
+        (date_from.isoformat(), date_to.isoformat()),
+    ).fetchall()
+    connection.close()
+
+    transaction_list = [dict(transaction) for transaction in transactions]
+
+    total_debit = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "debit"
+    )
+    total_credit = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "credit"
+    )
+    total_deposit = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "deposit"
+    )
+    net = total_credit + total_deposit - total_debit
+
+    return {
+        "date_from": date_from.isoformat(),
+        "date_to": date_to.isoformat(),
+        "total_debit": total_debit,
+        "total_credit": total_credit,
+        "total_deposit": total_deposit,
+        "net": net,
+        "transactions": transaction_list,
+    }
 
 
 @app.post(
