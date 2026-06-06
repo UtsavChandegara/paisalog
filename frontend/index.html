@@ -4,6 +4,155 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PaisaLog</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px;
+            background: #ffffff;
+            color: #1f2937;
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+        }
+
+        h1 {
+            margin: 32px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+            font-size: 28px;
+        }
+
+        h2 {
+            margin: 24px 0 12px;
+            font-size: 22px;
+        }
+
+        form,
+        table,
+        #statement-summary {
+            width: 100%;
+            margin-bottom: 20px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        form {
+            padding: 18px;
+        }
+
+        form div {
+            margin-bottom: 14px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #1f2937;
+            font: inherit;
+        }
+
+        input:focus,
+        select:focus {
+            outline: 2px solid #2563eb;
+            outline-offset: 1px;
+            border-color: #2563eb;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: 1px solid #1d4ed8;
+            border-radius: 6px;
+            background: #2563eb;
+            color: #ffffff;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        p {
+            min-height: 24px;
+            margin: 10px 0 16px;
+        }
+
+        table {
+            border-collapse: collapse;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f3f4f6;
+            font-weight: 700;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        tbody tr:hover {
+            background: #eef2ff;
+        }
+
+        #statement-summary {
+            padding: 16px;
+        }
+
+        #statement-summary p {
+            margin: 6px 0;
+            min-height: 0;
+        }
+
+        @media (max-width: 700px) {
+            body {
+                padding: 14px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            button {
+                width: 100%;
+                margin-bottom: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
     <h1>PaisaLog Transactions</h1>
