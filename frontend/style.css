@@ -112,6 +112,22 @@ tbody tr:hover {
     background: #eef2ff;
 }
 
+/* Social ledger row states */
+tbody tr.ledger-i-paid {
+    background-color: #fff4e6;
+}
+
+tbody tr.ledger-they-paid {
+    background-color: #ecfdf0;
+}
+
+/* Settled entries look faded and slightly crossed out */
+tbody tr.ledger-settled {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    opacity: 0.85;
+    text-decoration: line-through;
+}
 #statement-summary {
     padding: 16px;
 }

@@ -405,6 +405,15 @@
                         <td>${settleButton}</td>
                     `;
 
+                    // Apply row classes based on direction and settled state
+                    if (entry.is_settled) {
+                        row.classList.add('ledger-settled');
+                    } else if (entry.direction === 'i_paid') {
+                        row.classList.add('ledger-i-paid');
+                    } else if (entry.direction === 'they_paid') {
+                        row.classList.add('ledger-they-paid');
+                    }
+
                     socialLedgerTableBody.appendChild(row);
                 }
             } catch (error) {
