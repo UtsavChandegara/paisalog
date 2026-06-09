@@ -182,37 +182,50 @@ def create_daily_balance(daily_balance: DailyBalanceCreate):
     ).fetchone()
 
     if existing_daily_balance is not None:
-        connection.close()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Daily balance already exists for this date",
+        update_data = daily_balance.model_dump(
+            exclude={"date"},
+            exclude_unset=True,
         )
 
-    cursor = connection.cursor()
-    cursor.execute(
-        """
-        INSERT INTO daily_balance (
-            date,
-            cash_opening,
-            cash_closing,
-            online_opening,
-            online_closing,
-            note
-        )
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            daily_balance.date,
-            daily_balance.cash_opening,
-            daily_balance.cash_closing,
-            daily_balance.online_opening,
-            daily_balance.online_closing,
-            daily_balance.note,
-        ),
-    )
-    connection.commit()
+        if update_data:
+            assignments = ", ".join(f"{field} = ?" for field in update_data)
+            connection.execute(
+                f"""
+                UPDATE daily_balance
+                SET {assignments}
+                WHERE id = ?
+                """,
+                (*update_data.values(), existing_daily_balance["id"]),
+            )
+            connection.commit()
 
-    daily_balance_id = cursor.lastrowid
+        daily_balance_id = existing_daily_balance["id"]
+    else:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO daily_balance (
+                date,
+                cash_opening,
+                cash_closing,
+                online_opening,
+                online_closing,
+                note
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                daily_balance.date,
+                daily_balance.cash_opening,
+                daily_balance.cash_closing,
+                daily_balance.online_opening,
+                daily_balance.online_closing,
+                daily_balance.note,
+            ),
+        )
+        connection.commit()
+        daily_balance_id = cursor.lastrowid
+
     saved_daily_balance = connection.execute(
         """
         SELECT

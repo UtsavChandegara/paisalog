@@ -19,10 +19,10 @@ class Transaction(TransactionCreate):
 
 class DailyBalanceCreate(BaseModel):
     date: str
-    cash_opening: float
-    cash_closing: float
-    online_opening: float
-    online_closing: float
+    cash_opening: Optional[float] = None
+    cash_closing: Optional[float] = None
+    online_opening: Optional[float] = None
+    online_closing: Optional[float] = None
     note: Optional[str] = None
 
 

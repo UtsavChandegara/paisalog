@@ -72,39 +72,49 @@
 
     <h1>Daily Balance</h1>
 
-    <form id="daily-balance-form">
-        <div>
-            <label for="daily-balance-date">Date</label>
-            <input type="date" id="daily-balance-date" name="date" required>
-        </div>
+    <div class="daily-balance-panels">
+        <form id="morning-balance-form" class="daily-balance-panel">
+            <h2>Morning</h2>
 
-        <div>
-            <label for="cash-opening">Cash Opening</label>
-            <input type="number" id="cash-opening" name="cash_opening" step="0.01" required>
-        </div>
+            <div>
+                <label for="morning-balance-date">Date</label>
+                <input type="date" id="morning-balance-date" name="date" required>
+            </div>
 
-        <div>
-            <label for="cash-closing">Cash Closing</label>
-            <input type="number" id="cash-closing" name="cash_closing" step="0.01" required>
-        </div>
+            <div>
+                <label for="cash-opening">Cash Opening</label>
+                <input type="number" id="cash-opening" name="cash_opening" step="0.01" required>
+            </div>
 
-        <div>
-            <label for="online-opening">Online Opening</label>
-            <input type="number" id="online-opening" name="online_opening" step="0.01" required>
-        </div>
+            <div>
+                <label for="online-opening">Online Opening</label>
+                <input type="number" id="online-opening" name="online_opening" step="0.01" required>
+            </div>
 
-        <div>
-            <label for="online-closing">Online Closing</label>
-            <input type="number" id="online-closing" name="online_closing" step="0.01" required>
-        </div>
+            <button type="submit">Save Morning</button>
+        </form>
 
-        <div>
-            <label for="daily-balance-note">Note</label>
-            <input type="text" id="daily-balance-note" name="note">
-        </div>
+        <form id="night-balance-form" class="daily-balance-panel">
+            <h2>Night</h2>
 
-        <button type="submit">Save Daily Balance</button>
-    </form>
+            <div>
+                <label for="night-balance-date">Date</label>
+                <input type="date" id="night-balance-date" name="date" required>
+            </div>
+
+            <div>
+                <label for="cash-closing">Cash Closing</label>
+                <input type="number" id="cash-closing" name="cash_closing" step="0.01" required>
+            </div>
+
+            <div>
+                <label for="online-closing">Online Closing</label>
+                <input type="number" id="online-closing" name="online_closing" step="0.01" required>
+            </div>
+
+            <button type="submit">Save Night</button>
+        </form>
+    </div>
 
     <p id="daily-balance-message"></p>
 
@@ -226,7 +236,8 @@
         const message = document.getElementById("message");
         const loadTransactionsButton = document.getElementById("load-transactions");
         const transactionsTableBody = document.getElementById("transactions-table-body");
-        const dailyBalanceForm = document.getElementById("daily-balance-form");
+        const morningBalanceForm = document.getElementById("morning-balance-form");
+        const nightBalanceForm = document.getElementById("night-balance-form");
         const dailyBalanceMessage = document.getElementById("daily-balance-message");
         const loadDailyBalancesButton = document.getElementById("load-daily-balances");
         const dailyBalancesTableBody = document.getElementById("daily-balances-table-body");
@@ -287,18 +298,31 @@
             loadStatement(30);
         });
 
-        dailyBalanceForm.addEventListener("submit", async function (event) {
+        morningBalanceForm.addEventListener("submit", async function (event) {
             event.preventDefault();
 
             const dailyBalance = {
-                date: document.getElementById("daily-balance-date").value,
+                date: document.getElementById("morning-balance-date").value,
                 cash_opening: Number(document.getElementById("cash-opening").value),
-                cash_closing: Number(document.getElementById("cash-closing").value),
-                online_opening: Number(document.getElementById("online-opening").value),
-                online_closing: Number(document.getElementById("online-closing").value),
-                note: document.getElementById("daily-balance-note").value
+                online_opening: Number(document.getElementById("online-opening").value)
             };
 
+            await saveDailyBalance(dailyBalance, morningBalanceForm, "Morning balance saved successfully.");
+        });
+
+        nightBalanceForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const dailyBalance = {
+                date: document.getElementById("night-balance-date").value,
+                cash_closing: Number(document.getElementById("cash-closing").value),
+                online_closing: Number(document.getElementById("online-closing").value),
+            };
+
+            await saveDailyBalance(dailyBalance, nightBalanceForm, "Night balance saved successfully.");
+        });
+
+        async function saveDailyBalance(dailyBalance, form, successMessage) {
             try {
                 const response = await fetch(`${API_BASE_URL}/daily-balance`, {
                     method: "POST",
@@ -312,13 +336,13 @@
                     throw new Error("Could not save daily balance");
                 }
 
-                dailyBalanceMessage.textContent = "Daily balance saved successfully.";
-                dailyBalanceForm.reset();
+                dailyBalanceMessage.textContent = successMessage;
+                form.reset();
                 loadDailyBalances();
             } catch (error) {
                 dailyBalanceMessage.textContent = `Error: ${error.message}`;
             }
-        });
+        }
 
         socialLedgerForm.addEventListener("submit", async function (event) {
             event.preventDefault();
@@ -402,10 +426,10 @@
                     row.innerHTML = `
                         <td>${dailyBalance.id}</td>
                         <td>${dailyBalance.date}</td>
-                        <td>${dailyBalance.cash_opening}</td>
-                        <td>${dailyBalance.cash_closing}</td>
-                        <td>${dailyBalance.online_opening}</td>
-                        <td>${dailyBalance.online_closing}</td>
+                        <td>${dailyBalance.cash_opening ?? ""}</td>
+                        <td>${dailyBalance.cash_closing ?? ""}</td>
+                        <td>${dailyBalance.online_opening ?? ""}</td>
+                        <td>${dailyBalance.online_closing ?? ""}</td>
                         <td>${dailyBalance.note || ""}</td>
                     `;
 

@@ -38,6 +38,22 @@ form {
     padding: 18px;
 }
 
+.daily-balance-panels {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.daily-balance-panel {
+    flex: 1 1 0;
+    margin-bottom: 0;
+}
+
+.daily-balance-panel h2 {
+    margin-top: 0;
+}
+
 form div {
     margin-bottom: 14px;
 }
@@ -154,6 +170,14 @@ tbody tr.ledger-settled {
         display: block;
         overflow-x: auto;
         white-space: nowrap;
+    }
+
+    .daily-balance-panels {
+        flex-direction: column;
+    }
+
+    .daily-balance-panel {
+        width: 100%;
     }
 
     button {
