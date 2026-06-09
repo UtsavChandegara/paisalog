@@ -86,6 +86,22 @@ def migrate_transactions_table(cursor):
             """
         )
 
+    if "others_share" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE transactions
+            ADD COLUMN others_share REAL NOT NULL DEFAULT 0
+            """
+        )
+
+    if "others_person" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE transactions
+            ADD COLUMN others_person TEXT NOT NULL DEFAULT ''
+            """
+        )
+
 
 def migrate_social_ledger_table(cursor):
     columns = get_table_columns(cursor, "social_ledger")

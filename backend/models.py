@@ -10,6 +10,8 @@ class TransactionCreate(BaseModel):
     category: str
     mode: Literal["cash", "online"] = "cash"
     note: Optional[str] = None
+    others_share: float = 0
+    others_person: str = ""
 
 
 class Transaction(TransactionCreate):

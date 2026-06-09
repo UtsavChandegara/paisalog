@@ -16,8 +16,23 @@
         </div>
 
         <div>
-            <label for="amount">Amount</label>
+            <label for="amount">My Share</label>
             <input type="number" id="amount" name="amount" step="0.01" required>
+        </div>
+
+        <div>
+          <label for="others_share">Others' Share</label>
+          <input type="number" id="others_share" step="0.01" value="0">
+        </div>
+
+        <div id="others_person_container" style="display:none">
+          <label for="others_person">Person Name</label>
+          <input type="text" id="others_person">
+        </div>
+
+        <div>
+          <label>Total</label>
+          <input type="text" id="total_amount" readonly>
         </div>
 
         <div>
@@ -374,6 +389,19 @@
         reportMonthSelect.value = String(today.getMonth() + 1);
         reportYearInput.value = today.getFullYear();
 
+        const othersShareInput = document.getElementById('others_share');
+        othersShareInput.addEventListener('input', () => {
+            const val = parseFloat(othersShareInput.value) || 0;
+            document.getElementById('others_person_container').style.display = val > 0 ? 'block' : 'none';
+            const my = parseFloat(document.getElementById('amount').value) || 0;
+            document.getElementById('total_amount').value = (my + val).toFixed(2);
+        });
+        document.getElementById('amount').addEventListener('input', () => {
+            const my = parseFloat(document.getElementById('amount').value) || 0;
+            const other = parseFloat(document.getElementById('others_share').value) || 0;
+            document.getElementById('total_amount').value = (my + other).toFixed(2);
+        });
+
         transactionForm.addEventListener("submit", async function (event) {
             event.preventDefault();
 
@@ -383,7 +411,9 @@
                 type: document.getElementById("type").value,
                 category: document.getElementById("category").value,
                 mode: document.getElementById("mode").value,
-                note: document.getElementById("note").value
+                note: document.getElementById("note").value,
+                others_share: parseFloat(document.getElementById('others_share').value) || 0,
+                others_person: document.getElementById('others_person').value || ''
             };
 
             try {
@@ -663,7 +693,9 @@
                     row.innerHTML = `
                         <td>${transaction.id}</td>
                         <td>${transaction.date}</td>
-                        <td>${transaction.amount}</td>
+                        <td>${transaction.amount.toFixed(2)}</td>
+                        <td>${(transaction.others_share || 0).toFixed(2)}</td>
+                        <td>${transaction.others_person || ""}</td>
                         <td>${transaction.type}</td>
                         <td>${transaction.category}</td>
                         <td>${transaction.mode}</td>

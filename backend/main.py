@@ -42,26 +42,48 @@ def create_transaction(transaction: TransactionCreate):
     connection = get_db_connection()
     cursor = connection.cursor()
 
+    total_amount = transaction.amount + transaction.others_share
+
     cursor.execute(
         """
-        INSERT INTO transactions (date, amount, type, category, mode, note)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO transactions (date, amount, type, category, mode, note, others_share, others_person)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             transaction.date,
-            transaction.amount,
+            total_amount,
             transaction.type,
             transaction.category,
             transaction.mode,
             transaction.note,
+            transaction.others_share,
+            transaction.others_person,
         ),
     )
+    transaction_id = cursor.lastrowid
+
+    if transaction.others_share > 0 and transaction.others_person:
+        cursor.execute(
+            """
+            INSERT INTO social_ledger (date, amount, direction, person_name, mode, reason, is_settled)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                transaction.date,
+                transaction.others_share,
+                "i_paid",
+                transaction.others_person,
+                transaction.mode,
+                transaction.note,
+                0,
+            ),
+        )
+
     connection.commit()
 
-    transaction_id = cursor.lastrowid
     saved_transaction = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
         FROM transactions
         WHERE id = ?
         """,
@@ -78,7 +100,7 @@ def get_transactions():
 
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
         FROM transactions
         ORDER BY date DESC, id DESC
         """
@@ -94,7 +116,7 @@ def get_transaction(transaction_id: int):
 
     transaction = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
         FROM transactions
         WHERE id = ?
         """,
@@ -126,7 +148,7 @@ def get_statement(statement_range: int = Query(7, alias="range")):
     connection = get_db_connection()
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
         FROM transactions
         WHERE date >= ? AND date <= ?
         ORDER BY date DESC, id DESC
@@ -223,7 +245,7 @@ def get_report(
 
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
         FROM transactions
         WHERE date >= ? AND date <= ?
         ORDER BY date ASC, id ASC
