@@ -43,14 +43,15 @@ def create_transaction(transaction: TransactionCreate):
 
     cursor.execute(
         """
-        INSERT INTO transactions (date, amount, type, category, note)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO transactions (date, amount, type, category, mode, note)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
             transaction.date,
             transaction.amount,
             transaction.type,
             transaction.category,
+            transaction.mode,
             transaction.note,
         ),
     )
@@ -59,7 +60,7 @@ def create_transaction(transaction: TransactionCreate):
     transaction_id = cursor.lastrowid
     saved_transaction = connection.execute(
         """
-        SELECT id, date, amount, type, category, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at
         FROM transactions
         WHERE id = ?
         """,
@@ -76,7 +77,7 @@ def get_transactions():
 
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at
         FROM transactions
         ORDER BY date DESC, id DESC
         """
@@ -92,7 +93,7 @@ def get_transaction(transaction_id: int):
 
     transaction = connection.execute(
         """
-        SELECT id, date, amount, type, category, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at
         FROM transactions
         WHERE id = ?
         """,
@@ -124,7 +125,7 @@ def get_statement(statement_range: int = Query(7, alias="range")):
     connection = get_db_connection()
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, note, created_at
+        SELECT id, date, amount, type, category, mode, note, created_at
         FROM transactions
         WHERE date >= ? AND date <= ?
         ORDER BY date DESC, id DESC
@@ -190,13 +191,22 @@ def create_daily_balance(daily_balance: DailyBalanceCreate):
     cursor = connection.cursor()
     cursor.execute(
         """
-        INSERT INTO daily_balance (date, opening_balance, closing_balance, note)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO daily_balance (
+            date,
+            cash_opening,
+            cash_closing,
+            online_opening,
+            online_closing,
+            note
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
             daily_balance.date,
-            daily_balance.opening_balance,
-            daily_balance.closing_balance,
+            daily_balance.cash_opening,
+            daily_balance.cash_closing,
+            daily_balance.online_opening,
+            daily_balance.online_closing,
             daily_balance.note,
         ),
     )
@@ -205,7 +215,14 @@ def create_daily_balance(daily_balance: DailyBalanceCreate):
     daily_balance_id = cursor.lastrowid
     saved_daily_balance = connection.execute(
         """
-        SELECT id, date, opening_balance, closing_balance, note
+        SELECT
+            id,
+            date,
+            cash_opening,
+            cash_closing,
+            online_opening,
+            online_closing,
+            note
         FROM daily_balance
         WHERE id = ?
         """,
@@ -222,7 +239,14 @@ def get_daily_balances():
 
     daily_balances = connection.execute(
         """
-        SELECT id, date, opening_balance, closing_balance, note
+        SELECT
+            id,
+            date,
+            cash_opening,
+            cash_closing,
+            online_opening,
+            online_closing,
+            note
         FROM daily_balance
         ORDER BY date DESC, id DESC
         """
@@ -238,7 +262,14 @@ def get_daily_balance(daily_balance_id: int):
 
     daily_balance = connection.execute(
         """
-        SELECT id, date, opening_balance, closing_balance, note
+        SELECT
+            id,
+            date,
+            cash_opening,
+            cash_closing,
+            online_opening,
+            online_closing,
+            note
         FROM daily_balance
         WHERE id = ?
         """,
@@ -272,17 +303,19 @@ def create_social_ledger_entry(social_ledger: SocialLedgerCreate):
             amount,
             direction,
             person_name,
+            mode,
             reason,
             is_settled,
             settled_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             social_ledger.date,
             social_ledger.amount,
             social_ledger.direction,
             social_ledger.person_name,
+            social_ledger.mode,
             social_ledger.reason,
             int(social_ledger.is_settled),
             social_ledger.settled_at,
@@ -293,7 +326,16 @@ def create_social_ledger_entry(social_ledger: SocialLedgerCreate):
     social_ledger_id = cursor.lastrowid
     saved_social_ledger = connection.execute(
         """
-        SELECT id, date, amount, direction, person_name, reason, is_settled, settled_at
+        SELECT
+            id,
+            date,
+            amount,
+            direction,
+            person_name,
+            mode,
+            reason,
+            is_settled,
+            settled_at
         FROM social_ledger
         WHERE id = ?
         """,
@@ -310,7 +352,16 @@ def get_social_ledger_entries():
 
     social_ledger_entries = connection.execute(
         """
-        SELECT id, date, amount, direction, person_name, reason, is_settled, settled_at
+        SELECT
+            id,
+            date,
+            amount,
+            direction,
+            person_name,
+            mode,
+            reason,
+            is_settled,
+            settled_at
         FROM social_ledger
         ORDER BY is_settled ASC, date DESC, id DESC
         """
@@ -326,7 +377,16 @@ def get_social_ledger_entry(social_ledger_id: int):
 
     social_ledger = connection.execute(
         """
-        SELECT id, date, amount, direction, person_name, reason, is_settled, settled_at
+        SELECT
+            id,
+            date,
+            amount,
+            direction,
+            person_name,
+            mode,
+            reason,
+            is_settled,
+            settled_at
         FROM social_ledger
         WHERE id = ?
         """,
@@ -377,7 +437,16 @@ def settle_social_ledger_entry(social_ledger_id: int):
 
     settled_social_ledger = connection.execute(
         """
-        SELECT id, date, amount, direction, person_name, reason, is_settled, settled_at
+        SELECT
+            id,
+            date,
+            amount,
+            direction,
+            person_name,
+            mode,
+            reason,
+            is_settled,
+            settled_at
         FROM social_ledger
         WHERE id = ?
         """,

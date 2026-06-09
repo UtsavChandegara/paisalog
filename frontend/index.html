@@ -35,6 +35,14 @@
         </div>
 
         <div>
+            <label for="mode">Mode</label>
+            <select id="mode" name="mode" required>
+                <option value="cash">cash</option>
+                <option value="online">online</option>
+            </select>
+        </div>
+
+        <div>
             <label for="note">Note</label>
             <input type="text" id="note" name="note">
         </div>
@@ -54,6 +62,7 @@
                 <th>Amount</th>
                 <th>Type</th>
                 <th>Category</th>
+                <th>Mode</th>
                 <th>Note</th>
                 <th>Created At</th>
             </tr>
@@ -70,13 +79,23 @@
         </div>
 
         <div>
-            <label for="opening-balance">Opening Balance</label>
-            <input type="number" id="opening-balance" name="opening_balance" step="0.01" required>
+            <label for="cash-opening">Cash Opening</label>
+            <input type="number" id="cash-opening" name="cash_opening" step="0.01" required>
         </div>
 
         <div>
-            <label for="closing-balance">Closing Balance</label>
-            <input type="number" id="closing-balance" name="closing_balance" step="0.01" required>
+            <label for="cash-closing">Cash Closing</label>
+            <input type="number" id="cash-closing" name="cash_closing" step="0.01" required>
+        </div>
+
+        <div>
+            <label for="online-opening">Online Opening</label>
+            <input type="number" id="online-opening" name="online_opening" step="0.01" required>
+        </div>
+
+        <div>
+            <label for="online-closing">Online Closing</label>
+            <input type="number" id="online-closing" name="online_closing" step="0.01" required>
         </div>
 
         <div>
@@ -96,8 +115,10 @@
             <tr>
                 <th>ID</th>
                 <th>Date</th>
-                <th>Opening Balance</th>
-                <th>Closing Balance</th>
+                <th>Cash Opening</th>
+                <th>Cash Closing</th>
+                <th>Online Opening</th>
+                <th>Online Closing</th>
                 <th>Note</th>
             </tr>
         </thead>
@@ -131,6 +152,14 @@
         </div>
 
         <div>
+            <label for="social-ledger-mode">Mode</label>
+            <select id="social-ledger-mode" name="mode" required>
+                <option value="cash">cash</option>
+                <option value="online">online</option>
+            </select>
+        </div>
+
+        <div>
             <label for="reason">Reason</label>
             <input type="text" id="reason" name="reason">
         </div>
@@ -150,6 +179,7 @@
                 <th>Amount</th>
                 <th>Direction</th>
                 <th>Person Name</th>
+                <th>Mode</th>
                 <th>Reason</th>
                 <th>Settled</th>
                 <th>Settled At</th>
@@ -179,6 +209,7 @@
                 <th>Amount</th>
                 <th>Type</th>
                 <th>Category</th>
+                <th>Mode</th>
                 <th>Note</th>
                 <th>Created At</th>
             </tr>
@@ -218,6 +249,7 @@
                 amount: Number(document.getElementById("amount").value),
                 type: document.getElementById("type").value,
                 category: document.getElementById("category").value,
+                mode: document.getElementById("mode").value,
                 note: document.getElementById("note").value
             };
 
@@ -260,8 +292,10 @@
 
             const dailyBalance = {
                 date: document.getElementById("daily-balance-date").value,
-                opening_balance: Number(document.getElementById("opening-balance").value),
-                closing_balance: Number(document.getElementById("closing-balance").value),
+                cash_opening: Number(document.getElementById("cash-opening").value),
+                cash_closing: Number(document.getElementById("cash-closing").value),
+                online_opening: Number(document.getElementById("online-opening").value),
+                online_closing: Number(document.getElementById("online-closing").value),
                 note: document.getElementById("daily-balance-note").value
             };
 
@@ -294,6 +328,7 @@
                 amount: Number(document.getElementById("social-ledger-amount").value),
                 direction: document.getElementById("direction").value,
                 person_name: document.getElementById("person-name").value,
+                mode: document.getElementById("social-ledger-mode").value,
                 reason: document.getElementById("reason").value
             };
 
@@ -338,6 +373,7 @@
                         <td>${transaction.amount}</td>
                         <td>${transaction.type}</td>
                         <td>${transaction.category}</td>
+                        <td>${transaction.mode}</td>
                         <td>${transaction.note || ""}</td>
                         <td>${transaction.created_at}</td>
                     `;
@@ -366,8 +402,10 @@
                     row.innerHTML = `
                         <td>${dailyBalance.id}</td>
                         <td>${dailyBalance.date}</td>
-                        <td>${dailyBalance.opening_balance}</td>
-                        <td>${dailyBalance.closing_balance}</td>
+                        <td>${dailyBalance.cash_opening}</td>
+                        <td>${dailyBalance.cash_closing}</td>
+                        <td>${dailyBalance.online_opening}</td>
+                        <td>${dailyBalance.online_closing}</td>
                         <td>${dailyBalance.note || ""}</td>
                     `;
 
@@ -399,6 +437,7 @@
                         <td>${entry.amount}</td>
                         <td>${entry.direction}</td>
                         <td>${entry.person_name}</td>
+                        <td>${entry.mode}</td>
                         <td>${entry.reason || ""}</td>
                         <td>${entry.is_settled ? "Yes" : "No"}</td>
                         <td>${entry.settled_at || ""}</td>
@@ -469,6 +508,7 @@
                         <td>${transaction.amount}</td>
                         <td>${transaction.type}</td>
                         <td>${transaction.category}</td>
+                        <td>${transaction.mode}</td>
                         <td>${transaction.note || ""}</td>
                         <td>${transaction.created_at}</td>
                     `;
