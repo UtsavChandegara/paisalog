@@ -24,9 +24,15 @@ h2 {
     font-size: 22px;
 }
 
+h3 {
+    margin: 18px 0 10px;
+    font-size: 18px;
+}
+
 form,
 table,
-#statement-summary {
+#statement-summary,
+#report-summary {
     width: 100%;
     margin-bottom: 20px;
     border: 1px solid #d1d5db;
@@ -52,6 +58,28 @@ form {
 
 .daily-balance-panel h2 {
     margin-top: 0;
+}
+
+.report-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 16px;
+}
+
+.report-controls div {
+    min-width: 140px;
+}
+
+.report-social-lists {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.report-social-lists > div {
+    flex: 1 1 0;
 }
 
 form div {
@@ -153,6 +181,32 @@ tbody tr.ledger-settled {
     min-height: 0;
 }
 
+#report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    padding: 16px;
+}
+
+#report-summary div {
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+}
+
+#report-summary span {
+    display: block;
+    margin-bottom: 4px;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+#report-summary strong {
+    display: block;
+    font-size: 18px;
+}
+
 @media (max-width: 700px) {
     body {
         padding: 14px;
@@ -180,8 +234,41 @@ tbody tr.ledger-settled {
         width: 100%;
     }
 
+    .report-controls,
+    .report-social-lists {
+        flex-direction: column;
+    }
+
+    .report-controls div,
+    .report-social-lists > div {
+        width: 100%;
+    }
+
     button {
         width: 100%;
         margin-bottom: 8px;
+    }
+}
+
+@media print {
+    body {
+        max-width: none;
+        padding: 0;
+    }
+
+    form,
+    button,
+    #statement-message,
+    #report-message,
+    .report-controls {
+        display: none;
+    }
+
+    table {
+        page-break-inside: auto;
+    }
+
+    tr {
+        page-break-inside: avoid;
     }
 }

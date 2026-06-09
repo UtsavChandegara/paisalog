@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from calendar import monthrange
 from datetime import date, timedelta
 
 from fastapi import FastAPI, HTTPException, Query, status
@@ -160,6 +161,187 @@ def get_statement(statement_range: int = Query(7, alias="range")):
         "total_credit": total_credit,
         "total_deposit": total_deposit,
         "net": net,
+        "transactions": transaction_list,
+    }
+
+
+def get_report_dates(report_type: str, month: int | None, year: int | None):
+    today = date.today()
+
+    if report_type == "weekly":
+        return today - timedelta(days=6), today
+
+    if report_type == "15days":
+        if today.day <= 15:
+            return today.replace(day=1), today.replace(day=15)
+
+        last_day = monthrange(today.year, today.month)[1]
+        return today.replace(day=16), today.replace(day=last_day)
+
+    if report_type == "monthly":
+        if month is None or year is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="month and year are required for monthly reports",
+            )
+
+        if month < 1 or month > 12:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="month must be between 1 and 12",
+            )
+
+        last_day = monthrange(year, month)[1]
+        return date(year, month, 1), date(year, month, last_day)
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="type must be weekly, 15days, or monthly",
+    )
+
+
+def balance_total(daily_balance, opening_or_closing):
+    if daily_balance is None:
+        return 0
+
+    cash_value = daily_balance[f"cash_{opening_or_closing}"] or 0
+    online_value = daily_balance[f"online_{opening_or_closing}"] or 0
+    return cash_value + online_value
+
+
+@app.get("/report")
+def get_report(
+    report_type: str = Query(..., alias="type"),
+    month: int | None = None,
+    year: int | None = None,
+):
+    date_from, date_to = get_report_dates(report_type, month, year)
+    date_from_text = date_from.isoformat()
+    date_to_text = date_to.isoformat()
+
+    connection = get_db_connection()
+
+    transactions = connection.execute(
+        """
+        SELECT id, date, amount, type, category, mode, note, created_at
+        FROM transactions
+        WHERE date >= ? AND date <= ?
+        ORDER BY date ASC, id ASC
+        """,
+        (date_from_text, date_to_text),
+    ).fetchall()
+
+    daily_trail = connection.execute(
+        """
+        SELECT
+            id,
+            date,
+            cash_opening,
+            cash_closing,
+            online_opening,
+            online_closing,
+            note
+        FROM daily_balance
+        WHERE date >= ? AND date <= ?
+        ORDER BY date ASC, id ASC
+        """,
+        (date_from_text, date_to_text),
+    ).fetchall()
+
+    first_daily_balance = daily_trail[0] if daily_trail else None
+    last_daily_balance = daily_trail[-1] if daily_trail else None
+    opening_balance = balance_total(first_daily_balance, "opening")
+    closing_balance = balance_total(last_daily_balance, "closing")
+
+    social_entries = connection.execute(
+        """
+        SELECT person_name, amount, mode, direction, is_settled
+        FROM social_ledger
+        WHERE date >= ? AND date <= ?
+        ORDER BY date ASC, id ASC
+        """,
+        (date_from_text, date_to_text),
+    ).fetchall()
+
+    connection.close()
+
+    transaction_list = [dict(transaction) for transaction in transactions]
+    daily_trail_list = [dict(balance) for balance in daily_trail]
+    social_list = [dict(entry) for entry in social_entries]
+
+    total_credit = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "credit"
+    )
+    total_deposit = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "deposit"
+    )
+    total_debit = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "debit"
+    )
+    cash_spent = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "debit" and transaction["mode"] == "cash"
+    )
+    online_spent = sum(
+        transaction["amount"]
+        for transaction in transaction_list
+        if transaction["type"] == "debit" and transaction["mode"] == "online"
+    )
+
+    social_paid_by_me = [
+        {
+            "person_name": entry["person_name"],
+            "amount": entry["amount"],
+            "mode": entry["mode"],
+            "is_settled": bool(entry["is_settled"]),
+        }
+        for entry in social_list
+        if entry["direction"] == "i_paid"
+    ]
+    social_paid_for_me = [
+        {
+            "person_name": entry["person_name"],
+            "amount": entry["amount"],
+            "mode": entry["mode"],
+            "is_settled": bool(entry["is_settled"]),
+        }
+        for entry in social_list
+        if entry["direction"] == "they_paid"
+    ]
+    unsettled_entries = [
+        entry for entry in social_list if not bool(entry["is_settled"])
+    ]
+    unsettled_total = sum(entry["amount"] for entry in unsettled_entries)
+    net = total_credit + total_deposit - total_debit
+    accountability_gap = (
+        opening_balance + total_credit + total_deposit
+    ) - (total_debit + closing_balance)
+
+    return {
+        "date_from": date_from_text,
+        "date_to": date_to_text,
+        "report_type": report_type,
+        "opening_balance": opening_balance,
+        "closing_balance": closing_balance,
+        "total_credit": total_credit,
+        "total_deposit": total_deposit,
+        "total_debit": total_debit,
+        "cash_spent": cash_spent,
+        "online_spent": online_spent,
+        "social_paid_by_me": social_paid_by_me,
+        "social_paid_for_me": social_paid_for_me,
+        "unsettled_count": len(unsettled_entries),
+        "unsettled_total": unsettled_total,
+        "net": net,
+        "accountability_gap": accountability_gap,
+        "daily_trail": daily_trail_list,
         "transactions": transaction_list,
     }
 

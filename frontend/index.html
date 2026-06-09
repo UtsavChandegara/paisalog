@@ -227,6 +227,112 @@
         <tbody id="statement-transactions-table-body"></tbody>
     </table>
 
+    <h1>Report</h1>
+
+    <div class="report-controls">
+        <button type="button" id="report-weekly">This Week</button>
+        <button type="button" id="report-15-days">This 15 Days</button>
+        <button type="button" id="report-monthly">This Month</button>
+
+        <div>
+            <label for="report-month">Month</label>
+            <select id="report-month">
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="report-year">Year</label>
+            <input type="number" id="report-year" min="2000" max="2100">
+        </div>
+
+        <button type="button" id="print-report">Print</button>
+    </div>
+
+    <p id="report-message"></p>
+
+    <section id="report-output">
+        <h2>Summary</h2>
+        <div id="report-summary"></div>
+
+        <h2>Social Ledger</h2>
+        <div class="report-social-lists">
+            <div>
+                <h3>Paid By Me</h3>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Person</th>
+                            <th>Amount</th>
+                            <th>Mode</th>
+                            <th>Settled</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-paid-by-me-table-body"></tbody>
+                </table>
+            </div>
+
+            <div>
+                <h3>Paid For Me</h3>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Person</th>
+                            <th>Amount</th>
+                            <th>Mode</th>
+                            <th>Settled</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-paid-for-me-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <h2>Daily Trail</h2>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Cash Opening</th>
+                    <th>Cash Closing</th>
+                    <th>Online Opening</th>
+                    <th>Online Closing</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody id="report-daily-trail-table-body"></tbody>
+        </table>
+
+        <h2>Full Transaction List</h2>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Mode</th>
+                    <th>Note</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody id="report-transactions-table-body"></tbody>
+        </table>
+    </section>
+
     <script>
         const API_BASE_URL = window.location.hostname === "127.0.0.1" 
             ? "http://127.0.0.1:8000" 
@@ -251,6 +357,22 @@
         const statementMessage = document.getElementById("statement-message");
         const statementSummary = document.getElementById("statement-summary");
         const statementTransactionsTableBody = document.getElementById("statement-transactions-table-body");
+        const reportWeeklyButton = document.getElementById("report-weekly");
+        const report15DaysButton = document.getElementById("report-15-days");
+        const reportMonthlyButton = document.getElementById("report-monthly");
+        const reportMonthSelect = document.getElementById("report-month");
+        const reportYearInput = document.getElementById("report-year");
+        const printReportButton = document.getElementById("print-report");
+        const reportMessage = document.getElementById("report-message");
+        const reportSummary = document.getElementById("report-summary");
+        const reportPaidByMeTableBody = document.getElementById("report-paid-by-me-table-body");
+        const reportPaidForMeTableBody = document.getElementById("report-paid-for-me-table-body");
+        const reportDailyTrailTableBody = document.getElementById("report-daily-trail-table-body");
+        const reportTransactionsTableBody = document.getElementById("report-transactions-table-body");
+
+        const today = new Date();
+        reportMonthSelect.value = String(today.getMonth() + 1);
+        reportYearInput.value = today.getFullYear();
 
         transactionForm.addEventListener("submit", async function (event) {
             event.preventDefault();
@@ -296,6 +418,18 @@
         });
         statement30DaysButton.addEventListener("click", function () {
             loadStatement(30);
+        });
+        reportWeeklyButton.addEventListener("click", function () {
+            loadReport("weekly");
+        });
+        report15DaysButton.addEventListener("click", function () {
+            loadReport("15days");
+        });
+        reportMonthlyButton.addEventListener("click", function () {
+            loadReport("monthly");
+        });
+        printReportButton.addEventListener("click", function () {
+            window.print();
         });
 
         morningBalanceForm.addEventListener("submit", async function (event) {
@@ -541,6 +675,114 @@
                 }
             } catch (error) {
                 statementMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function loadReport(reportType) {
+            try {
+                let reportUrl = `${API_BASE_URL}/report?type=${reportType}`;
+
+                if (reportType === "monthly") {
+                    reportUrl += `&month=${reportMonthSelect.value}&year=${reportYearInput.value}`;
+                }
+
+                const response = await fetch(reportUrl);
+
+                if (!response.ok) {
+                    throw new Error("Could not load report");
+                }
+
+                const report = await response.json();
+                renderReport(report);
+            } catch (error) {
+                reportMessage.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        function formatAmount(value) {
+            return Number(value || 0).toFixed(2);
+        }
+
+        function renderReport(report) {
+            reportMessage.textContent = "";
+            reportSummary.innerHTML = `
+                <div><span>Report Type</span><strong>${report.report_type}</strong></div>
+                <div><span>Date From</span><strong>${report.date_from}</strong></div>
+                <div><span>Date To</span><strong>${report.date_to}</strong></div>
+                <div><span>Opening Balance</span><strong>${formatAmount(report.opening_balance)}</strong></div>
+                <div><span>Closing Balance</span><strong>${formatAmount(report.closing_balance)}</strong></div>
+                <div><span>Total Credit</span><strong>${formatAmount(report.total_credit)}</strong></div>
+                <div><span>Total Deposit</span><strong>${formatAmount(report.total_deposit)}</strong></div>
+                <div><span>Total Debit</span><strong>${formatAmount(report.total_debit)}</strong></div>
+                <div><span>Cash Spent</span><strong>${formatAmount(report.cash_spent)}</strong></div>
+                <div><span>Online Spent</span><strong>${formatAmount(report.online_spent)}</strong></div>
+                <div><span>Unsettled Count</span><strong>${report.unsettled_count}</strong></div>
+                <div><span>Unsettled Total</span><strong>${formatAmount(report.unsettled_total)}</strong></div>
+                <div><span>Net</span><strong>${formatAmount(report.net)}</strong></div>
+                <div><span>Accountability Gap</span><strong>${formatAmount(report.accountability_gap)}</strong></div>
+            `;
+
+            renderSocialReportRows(reportPaidByMeTableBody, report.social_paid_by_me);
+            renderSocialReportRows(reportPaidForMeTableBody, report.social_paid_for_me);
+            renderReportDailyTrail(report.daily_trail);
+            renderReportTransactions(report.transactions);
+        }
+
+        function renderSocialReportRows(tableBody, entries) {
+            tableBody.innerHTML = "";
+
+            for (const entry of entries) {
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${entry.person_name}</td>
+                    <td>${formatAmount(entry.amount)}</td>
+                    <td>${entry.mode}</td>
+                    <td>${entry.is_settled ? "Yes" : "No"}</td>
+                `;
+
+                tableBody.appendChild(row);
+            }
+        }
+
+        function renderReportDailyTrail(dailyTrail) {
+            reportDailyTrailTableBody.innerHTML = "";
+
+            for (const dailyBalance of dailyTrail) {
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${dailyBalance.id}</td>
+                    <td>${dailyBalance.date}</td>
+                    <td>${dailyBalance.cash_opening ?? ""}</td>
+                    <td>${dailyBalance.cash_closing ?? ""}</td>
+                    <td>${dailyBalance.online_opening ?? ""}</td>
+                    <td>${dailyBalance.online_closing ?? ""}</td>
+                    <td>${dailyBalance.note || ""}</td>
+                `;
+
+                reportDailyTrailTableBody.appendChild(row);
+            }
+        }
+
+        function renderReportTransactions(transactions) {
+            reportTransactionsTableBody.innerHTML = "";
+
+            for (const transaction of transactions) {
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${transaction.id}</td>
+                    <td>${transaction.date}</td>
+                    <td>${formatAmount(transaction.amount)}</td>
+                    <td>${transaction.type}</td>
+                    <td>${transaction.category}</td>
+                    <td>${transaction.mode}</td>
+                    <td>${transaction.note || ""}</td>
+                    <td>${transaction.created_at}</td>
+                `;
+
+                reportTransactionsTableBody.appendChild(row);
             }
         }
     </script>
