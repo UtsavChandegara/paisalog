@@ -183,7 +183,7 @@
                             <td>${entry.is_settled ? 'Yes' : 'No'}</td>
                             <td>${entry.settled_at ? new Date(entry.settled_at).toLocaleString() : ''}</td>
                             <td>
-                                ${!entry.is_settled && group.direction === 'i_paid' ? `<button type="button" class="settle-btn" data-id="${entry.id}">Settle</button>` : ''}
+                                ${!entry.is_settled ? `<button type="button" class="settle-btn" data-id="${entry.id}">Settle</button>` : ''}
                             </td>
                         </tr>
                     `).join('');

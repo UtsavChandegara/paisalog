@@ -12,6 +12,7 @@ class TransactionCreate(BaseModel):
     note: Optional[str] = None
     others_share: float = 0
     others_person: str = ""
+    received_from: Optional[str] = None
 
 
 class SocialLedgerSplit(BaseModel):
@@ -59,6 +60,7 @@ class SocialLedgerCreate(BaseModel):
     is_settled: bool = False
     settled_at: Optional[str] = None
     source: str = "manual"
+    paid_by: Optional[str] = None
 
 
 class SocialLedger(SocialLedgerCreate):
@@ -99,6 +101,7 @@ class Category(CategoryCreate):
 
 class PersonCreate(BaseModel):
     name: str
+    is_self: bool = False
 
 
 class Person(PersonCreate):
@@ -113,3 +116,4 @@ class SocialLedgerCreateWithSplits(BaseModel):
     note: Optional[str] = None
     category: str = "Other"
     splits: list[SocialLedgerSplit]
+    paid_by: Optional[str] = None

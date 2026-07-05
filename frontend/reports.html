@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - PaisaLog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Reports</h1>
+
+    <div class="report-controls">
+        <button type="button" data-type="weekly">This Week</button>
+        <button type="button" data-type="15days">This 15 Days</button>
+        <button type="button" data-type="monthly-current">This Month</button>
+        <div>
+            <label for="report-month">Month</label>
+            <select id="report-month"></select>
+        </div>
+        <div>
+            <label for="report-year">Year</label>
+            <input type="number" id="report-year">
+        </div>
+        <button type="button" data-type="monthly-custom">Generate Monthly Report</button>
+    </div>
+    <p id="report-message">Select a report type to begin.</p>
+
+    <section id="report-output" style="display: none;">
+        <button type="button" id="print-report" style="width: auto; float: right; margin-bottom: 16px;">Print</button>
+        <h2 id="report-title">Report</h2>
+
+        <h3>Summary</h3>
+        <div id="report-summary">
+            <!-- Summary cards will be rendered here -->
+        </div>
+
+        <h3>Where did it go? (Spending by Category)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>% of Total</th>
+                </tr>
+            </thead>
+            <tbody id="category-spending-body"></tbody>
+        </table>
+
+        <h3>Daily Trail</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Cash Opening</th>
+                    <th>Cash Closing</th>
+                    <th>Online Opening</th>
+                    <th>Online Closing</th>
+                    <th>Daily Spent</th>
+                </tr>
+            </thead>
+            <tbody id="daily-trail-body"></tbody>
+        </table>
+
+        <h3>Full Transaction List</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Mode</th>
+                    <th>Note</th>
+                </tr>
+            </thead>
+            <tbody id="transactions-body"></tbody>
+        </table>
+    </section>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element References ---
+            const reportControls = document.querySelector('.report-controls');
+            const reportMessage = document.getElementById('report-message');
+            const reportOutput = document.getElementById('report-output');
+            const reportTitle = document.getElementById('report-title');
+            const monthSelect = document.getElementById('report-month');
+            const yearInput = document.getElementById('report-year');
+            const printButton = document.getElementById('print-report');
+
+            // --- Initial Setup ---
+            function setupControls() {
+                const today = new Date();
+                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                monthSelect.innerHTML = months.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+                monthSelect.value = today.getMonth() + 1;
+                yearInput.value = today.getFullYear();
+            }
+
+            // --- Report Loading ---
+            async function loadReport(type, month = null, year = null) {
+                reportMessage.textContent = 'Generating report...';
+                reportOutput.style.display = 'none';
+
+                let url = `${API_BASE_URL}/report?type=${type}`;
+                if (type === 'monthly-custom' || type === 'monthly-current') {
+                    url = `${API_BASE_URL}/report?type=monthly&month=${month}&year=${year}`;
+                }
+
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to generate report.');
+                    }
+                    const report = await response.json();
+                    renderReport(report);
+                    reportMessage.textContent = '';
+                    reportOutput.style.display = 'block';
+                } catch (error) {
+                    reportMessage.textContent = `Error: ${error.message}`;
+                }
+            }
+
+            // --- Report Rendering ---
+            function renderReport(report) {
+                reportTitle.textContent = `Report for ${report.date_from} to ${report.date_to}`;
+
+                // --- Section 1, 2, 3: Summaries ---
+                const summaryContainer = document.getElementById('report-summary');
+                summaryContainer.innerHTML = ''; // Clear previous summary
+
+                const format = (val) => val.toFixed(2);
+
+                // My Money
+                const accountabilityGap = report.accountability_gap;
+                const gapColor = Math.abs(accountabilityGap) < 0.01 ? 'color: #16a34a;' : 'color: #dc2626;';
+
+                // Social Position
+                const theyOweMe = report.social_paid_by_me.filter(e => !e.is_settled).reduce((sum, e) => sum + e.amount, 0);
+                const iOweThem = report.social_paid_for_me.filter(e => !e.is_settled).reduce((sum, e) => sum + e.amount, 0);
+                const netSocial = theyOweMe - iOweThem;
+                let netSocialColor = '#6b7280'; // Grey for zero
+                if (netSocial > 0) netSocialColor = '#2563eb'; // Blue for positive
+                if (netSocial < 0) netSocialColor = '#dc2626'; // Red for negative
+
+                // True Position
+                const truePosition = report.closing_balance + netSocial;
+
+                const summaryItems = {
+                    'Opening Balance': format(report.opening_balance),
+                    'Total Credit': `+ ${format(report.total_credit)}`,
+                    'Total Deposit': `+ ${format(report.total_deposit)}`,
+                    'Total Debit': `- ${format(report.total_debit)}`,
+                    'Closing Balance': format(report.closing_balance),
+                };
+
+                for (const [label, value] of Object.entries(summaryItems)) {
+                    summaryContainer.innerHTML += `
+                        <div>
+                            <span>${label}</span>
+                            <strong>${value}</strong>
+                        </div>
+                    `;
+                }
+
+                // Render special summary items with color coding
+                summaryContainer.innerHTML += `
+                    <div>
+                        <span>Accountability Gap</span>
+                        <strong style="${gapColor}">${format(accountabilityGap)}</strong>
+                    </div>
+                    <div>
+                        <span>They Owe Me</span>
+                        <strong style="color: #16a34a;">${format(theyOweMe)}</strong>
+                    </div>
+                    <div>
+                        <span>I Owe Them</span>
+                        <strong style="color: #dc2626;">${format(iOweThem)}</strong>
+                    </div>
+                    <div>
+                        <span>Net Social</span>
+                        <strong style="color: ${netSocialColor};">${format(netSocial)}</strong>
+                    </div>
+                `;
+                
+                summaryContainer.innerHTML += `
+                    <div style="grid-column: 1 / -1; background: #eef2ff; text-align: center; padding: 16px;">
+                        <span>True Position (if all debts settled)</span>
+                        <strong style="font-size: 24px;">₹${format(truePosition)}</strong>
+                    </div>
+                `;
+
+
+                // --- Section 4: Category Spending ---
+                const categorySpending = {};
+                report.transactions.forEach(tx => {
+                    if (tx.type === 'debit') {
+                        categorySpending[tx.category] = (categorySpending[tx.category] || 0) + tx.amount;
+                    }
+                });
+
+                const sortedCategories = Object.entries(categorySpending).sort(([, a], [, b]) => b - a);
+                const categoryBody = document.getElementById('category-spending-body');
+                categoryBody.innerHTML = '';
+                sortedCategories.forEach(([category, amount]) => {
+                    const percentage = report.total_debit > 0 ? (amount / report.total_debit) * 100 : 0;
+                    categoryBody.innerHTML += `
+                        <tr>
+                            <td>${category}</td>
+                            <td>${format(amount)}</td>
+                            <td>${percentage.toFixed(1)}%</td>
+                        </tr>
+                    `;
+                });
+
+                // --- Section 5: Daily Trail ---
+                const dailyTrailBody = document.getElementById('daily-trail-body');
+                dailyTrailBody.innerHTML = '';
+                report.daily_trail.forEach(day => {
+                    const dailySpent = report.transactions
+                        .filter(tx => tx.date === day.date && tx.type === 'debit')
+                        .reduce((sum, tx) => sum + tx.amount, 0);
+
+                    dailyTrailBody.innerHTML += `
+                        <tr>
+                            <td>${day.date}</td>
+                            <td>${day.cash_opening ? format(day.cash_opening) : ''}</td>
+                            <td>${day.cash_closing ? format(day.cash_closing) : ''}</td>
+                            <td>${day.online_opening ? format(day.online_opening) : ''}</td>
+                            <td>${day.online_closing ? format(day.online_closing) : ''}</td>
+                            <td>${format(dailySpent)}</td>
+                        </tr>
+                    `;
+                });
+
+                // --- Section 6: Full Transaction List ---
+                const transactionsBody = document.getElementById('transactions-body');
+                transactionsBody.innerHTML = '';
+                report.transactions.forEach(tx => {
+                    transactionsBody.innerHTML += `
+                        <tr>
+                            <td>${tx.date}</td>
+                            <td>${format(tx.amount)}</td>
+                            <td>${tx.type}</td>
+                            <td>${tx.category}</td>
+                            <td>${tx.mode}</td>
+                            <td>${tx.note || ''}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // --- Event Listeners ---
+            reportControls.addEventListener('click', (event) => {
+                if (event.target.tagName === 'BUTTON') {
+                    const type = event.target.dataset.type;
+                    if (!type) return;
+
+                    if (type === 'monthly-custom') {
+                        loadReport(type, monthSelect.value, yearInput.value);
+                    } else if (type === 'monthly-current') {
+                        const today = new Date();
+                        loadReport(type, today.getMonth() + 1, today.getFullYear());
+                    } else {
+                        loadReport(type);
+                    }
+                }
+            });
+
+            printButton.addEventListener('click', () => {
+                window.print();
+            });
+
+            // --- Initialize ---
+            setupControls();
+        });
+    </script>
+</body>
+</html>

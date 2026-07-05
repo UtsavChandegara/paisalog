@@ -79,6 +79,7 @@ def create_tables():
 
     migrate_transactions_table(cursor)
     migrate_daily_balance_table(cursor)
+    migrate_people_table(cursor)
 
     cursor.execute(
         """
@@ -139,6 +140,25 @@ def migrate_transactions_table(cursor):
             """
         )
 
+    if "received_from" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE transactions
+            ADD COLUMN received_from TEXT
+            """
+        )
+
+
+def migrate_people_table(cursor):
+    columns = get_table_columns(cursor, "people")
+    if "is_self" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE people
+            ADD COLUMN is_self INTEGER NOT NULL DEFAULT 0
+            """
+        )
+
 
 def migrate_social_ledger_table(cursor):
     columns = get_table_columns(cursor, "social_ledger")
@@ -188,6 +208,14 @@ def migrate_social_ledger_table(cursor):
             """
             ALTER TABLE social_ledger
             ADD COLUMN created_at TIMESTAMP DEFAULT '2026-01-01 00:00:00'
+            """
+        )
+
+    if "paid_by" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE social_ledger
+            ADD COLUMN paid_by TEXT DEFAULT NULL
             """
         )
 

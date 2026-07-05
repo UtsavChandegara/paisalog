@@ -29,6 +29,12 @@
                     <option value="deposit">Deposit</option>
                 </select>
             </div>
+            <div id="received-from-container" style="display: none;">
+                <label for="tx-received-from">Received From</label>
+                <select id="tx-received-from">
+                    <option value="">Select Person (optional)</option>
+                </select>
+            </div>
             <div>
                 <label for="tx-category">Category</label>
                 <select id="tx-category" required>
@@ -64,6 +70,12 @@
                 <select id="social-direction" required>
                     <option value="i_paid">I Paid</option>
                     <option value="they_paid">They Paid</option>
+                </select>
+            </div>
+            <div id="paid-by-container" style="display: none;">
+                <label for="social-paid-by">Paid By</label>
+                <select id="social-paid-by">
+                    <option value="">Select Person</option>
                 </select>
             </div>
             <div>
@@ -113,6 +125,10 @@
             // --- Element References ---
             const txForm = document.getElementById('transaction-form');
             const txMessage = document.getElementById('transaction-message');
+            const txTypeSelect = document.getElementById('tx-type');
+            const receivedFromContainer = document.getElementById('received-from-container');
+            const socialDirectionSelect = document.getElementById('social-direction');
+            const paidByContainer = document.getElementById('paid-by-container');
             const socialForm = document.getElementById('social-ledger-form');
             const socialSplitsContainer = document.getElementById('social-splits-container');
             const socialTotalInput = document.getElementById('social-total');
@@ -132,6 +148,8 @@
 
                     const txCategorySelect = document.getElementById('tx-category');
                     const socialCategorySelect = document.getElementById('social-category');
+                    const receivedFromSelect = document.getElementById('tx-received-from');
+                    const paidBySelect = document.getElementById('social-paid-by');
                     
                     let categoryOptions = '<option value="">Select Category</option>';
                     allCategories.forEach(cat => {
@@ -139,6 +157,24 @@
                     });
                     txCategorySelect.innerHTML = categoryOptions;
                     socialCategorySelect.innerHTML = categoryOptions;
+
+                    const selfPerson = allPeople.find(p => p.is_self);
+                    const otherPeople = allPeople.filter(p => !p.is_self);
+
+                    allPeople.forEach(person => {
+                        const option = document.createElement('option');
+                        option.value = person.name;
+                        option.textContent = person.name;
+                        receivedFromSelect.appendChild(option);
+                    });
+
+                    paidBySelect.innerHTML = '<option value="">Select Person</option>';
+                    otherPeople.forEach(person => {
+                        const option = document.createElement('option');
+                        option.value = person.name;
+                        option.textContent = person.name;
+                        paidBySelect.appendChild(option);
+                    });
 
                 } catch (error) {
                     txMessage.textContent = `Error: ${error.message}`;
@@ -188,6 +224,7 @@
                     category: document.getElementById('tx-category').value,
                     mode: document.getElementById('tx-mode').value,
                     note: document.getElementById('tx-note').value,
+                    received_from: txTypeSelect.value === 'credit' ? document.getElementById('tx-received-from').value : null
                 };
 
                 try {
@@ -202,6 +239,7 @@
                     }
                     txMessage.textContent = 'Transaction saved successfully!';
                     txForm.reset();
+                    receivedFromContainer.style.display = 'none';
                     document.getElementById('tx-date').value = today;
                     setTimeout(() => txMessage.textContent = '', 3000);
                 } catch (error) {
@@ -225,13 +263,20 @@
                     return;
                 }
 
+                if (document.getElementById('social-direction').value === 'they_paid' && !document.getElementById('social-paid-by').value) {
+                    socialMessage.textContent = 'Please select who paid.';
+                    setTimeout(() => socialMessage.textContent = '', 3000);
+                    return;
+                }
+
                 const payload = {
                     date: document.getElementById('social-date').value,
                     direction: document.getElementById('social-direction').value,
                     category: document.getElementById('social-category').value,
                     mode: document.getElementById('social-mode').value,
                     note: document.getElementById('social-note').value || null,
-                    splits: splits
+                    splits: splits,
+                    paid_by: document.getElementById('social-direction').value === 'they_paid' ? document.getElementById('social-paid-by').value : null
                 };
 
                 try {
@@ -261,6 +306,24 @@
                 document.getElementById('tx-date').value = today;
                 document.getElementById('social-date').value = today;
                 document.getElementById('add-social-split-btn').addEventListener('click', createSocialSplitRow);
+
+                socialDirectionSelect.addEventListener('change', () => {
+                    if (socialDirectionSelect.value === 'they_paid') {
+                        paidByContainer.style.display = 'block';
+                    } else {
+                        paidByContainer.style.display = 'none';
+                        document.getElementById('social-paid-by').value = ''; // Clear value
+                    }
+                });
+
+                txTypeSelect.addEventListener('change', () => {
+                    if (txTypeSelect.value === 'credit') {
+                        receivedFromContainer.style.display = 'block';
+                    } else {
+                        receivedFromContainer.style.display = 'none';
+                    }
+                });
+
                 updateSocialTotal();
                 loadInitialData();
             }

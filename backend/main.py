@@ -60,8 +60,8 @@ def create_transaction(transaction: TransactionCreate):
 
     cursor.execute(
         """
-        INSERT INTO transactions (date, amount, type, category, mode, note, others_share, others_person)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO transactions (date, amount, type, category, mode, note, others_share, others_person, received_from)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             transaction.date,
@@ -72,6 +72,7 @@ def create_transaction(transaction: TransactionCreate):
             transaction.note,
             transaction.others_share,
             transaction.others_person,
+            transaction.received_from,
         ),
     )
     transaction_id = cursor.lastrowid
@@ -79,7 +80,7 @@ def create_transaction(transaction: TransactionCreate):
 
     saved_transaction = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person, received_from
         FROM transactions
         WHERE id = ?
         """,
@@ -96,7 +97,7 @@ def get_transactions():
 
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person, received_from
         FROM transactions
         ORDER BY date DESC, id DESC
         """
@@ -112,7 +113,7 @@ def get_transaction(transaction_id: int):
 
     transaction = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person, received_from
         FROM transactions
         WHERE id = ?
         """,
@@ -144,7 +145,7 @@ def get_statement(statement_range: int = Query(7, alias="range")):
     connection = get_db_connection()
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person, received_from
         FROM transactions
         WHERE date >= ? AND date <= ?
         ORDER BY date DESC, id DESC
@@ -241,7 +242,7 @@ def get_report(
 
     transactions = connection.execute(
         """
-        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person
+        SELECT id, date, amount, type, category, mode, note, created_at, others_share, others_person, received_from
         FROM transactions
         WHERE date >= ? AND date <= ?
         ORDER BY date ASC, id ASC
@@ -273,13 +274,18 @@ def get_report(
 
     social_entries = connection.execute(
         """
-        SELECT person_name, amount, mode, direction, is_settled
+        SELECT person_name, amount, mode, direction, is_settled, paid_by
         FROM social_ledger
         WHERE date >= ? AND date <= ?
         ORDER BY date ASC, id ASC
         """,
         (date_from_text, date_to_text),
     ).fetchall()
+
+    self_person = connection.execute(
+        "SELECT name FROM people WHERE is_self = 1"
+    ).fetchone()
+    self_name = self_person["name"] if self_person else None
 
     connection.close()
 
@@ -321,7 +327,7 @@ def get_report(
             "is_settled": bool(entry["is_settled"]),
         }
         for entry in social_list
-        if entry["direction"] == "i_paid"
+        if entry["direction"] == "i_paid" and entry["person_name"] != self_name
     ]
     social_paid_for_me = [
         {
@@ -331,10 +337,16 @@ def get_report(
             "is_settled": bool(entry["is_settled"]),
         }
         for entry in social_list
-        if entry["direction"] == "they_paid"
+        if entry["direction"] == "they_paid" and entry["person_name"] == self_name
     ]
     unsettled_entries = [
-        entry for entry in social_list if not bool(entry["is_settled"])
+        entry
+        for entry in social_list
+        if not bool(entry["is_settled"])
+        and (
+            (entry["direction"] == "i_paid" and entry["person_name"] != self_name)
+            or (entry["direction"] == "they_paid" and entry["person_name"] == self_name)
+        )
     ]
     unsettled_total = sum(entry["amount"] for entry in unsettled_entries)
     net = total_credit + total_deposit - total_debit
@@ -510,6 +522,7 @@ def create_social_ledger_entry(social_ledger: SocialLedgerCreateWithSplits):
     cursor = connection.cursor()
     created_entries = []
     group_id = str(uuid.uuid4())
+    paid_by_value = social_ledger.paid_by if social_ledger.direction == "they_paid" else None
 
     for split in social_ledger.splits:
         person = connection.execute("SELECT name FROM people WHERE id = ?", (split.person_id,)).fetchone()
@@ -518,8 +531,8 @@ def create_social_ledger_entry(social_ledger: SocialLedgerCreateWithSplits):
 
         cursor.execute(
             """
-            INSERT INTO social_ledger (date, amount, direction, person_name, mode, note, category, is_settled, source, group_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO social_ledger (date, amount, direction, person_name, mode, note, category, is_settled, source, group_id, paid_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 social_ledger.date,
@@ -532,13 +545,14 @@ def create_social_ledger_entry(social_ledger: SocialLedgerCreateWithSplits):
                 0,
                 "manual",
                 group_id,
+                paid_by_value,
             ),
         )
         entry_id = cursor.lastrowid
         new_entry = connection.execute(
             """
             SELECT id, date, amount, direction, person_name, mode,
-                   COALESCE(note, reason) as note, category, is_settled, settled_at,
+                   COALESCE(note, reason) as note, category, is_settled, settled_at, paid_by,
                    source, group_id, created_at
             FROM social_ledger
             WHERE id = ?
@@ -570,8 +584,9 @@ def get_social_ledger_entries():
             is_settled,
             settled_at,
             source,
-            group_id,
-            created_at
+            group_id, 
+            created_at,
+            paid_by
         FROM social_ledger
         ORDER BY is_settled ASC, date DESC, id DESC
         """
@@ -587,7 +602,7 @@ def get_social_ledger_groups():
     entries = connection.execute(
         """
         SELECT
-            id, date, amount, direction, person_name, mode, COALESCE(note, reason) as note,
+            id, date, amount, direction, person_name, mode, COALESCE(note, reason) as note, paid_by,
             category, is_settled, settled_at, source, group_id, created_at
         FROM social_ledger
         ORDER BY created_at DESC
@@ -650,7 +665,8 @@ def get_social_ledger_entry(social_ledger_id: int):
             settled_at,
             source,
             group_id,
-            created_at
+            created_at,
+            paid_by
         FROM social_ledger
         WHERE id = ?
         """,
@@ -714,7 +730,8 @@ def settle_social_ledger_entry(social_ledger_id: int):
             settled_at,
             source,
             group_id,
-            created_at
+            created_at,
+            paid_by
         FROM social_ledger
         WHERE id = ?
         """,
@@ -729,7 +746,7 @@ def settle_social_ledger_entry(social_ledger_id: int):
 def get_people():
     connection = get_db_connection()
     people = connection.execute(
-        "SELECT id, name, created_at FROM people ORDER BY name ASC"
+        "SELECT id, name, created_at, is_self FROM people ORDER BY name ASC"
     ).fetchall()
     connection.close()
     return [dict(person) for person in people]
@@ -741,12 +758,12 @@ def create_person(person: PersonCreate):
     try:
         cursor = connection.cursor()
         cursor.execute(
-            "INSERT INTO people (name) VALUES (?)", (person.name,)
+            "INSERT INTO people (name, is_self) VALUES (?, ?)", (person.name, person.is_self)
         )
         person_id = cursor.lastrowid
         connection.commit()
         new_person = connection.execute(
-            "SELECT id, name, created_at FROM people WHERE id = ?", (person_id,)
+            "SELECT id, name, created_at, is_self FROM people WHERE id = ?", (person_id,)
         ).fetchone()
         connection.close()
         return dict(new_person)
@@ -761,22 +778,48 @@ def create_person(person: PersonCreate):
 @app.delete("/people/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_person(person_id: int):
     connection = get_db_connection()
-    # Optional: Check if person is used in social_ledger before deleting
-    # For now, just delete
-    person = connection.execute("SELECT id FROM people WHERE id = ?", (person_id,)).fetchone()
+    person = connection.execute("SELECT id, is_self FROM people WHERE id = ?", (person_id,)).fetchone()
     if person is None:
         connection.close()
         raise HTTPException(status_code=404, detail="Person not found")
 
-    # Check if person is used in non-settled social ledger entries
-    # count = connection.execute("SELECT COUNT(*) FROM social_ledger WHERE person_name = ? AND is_settled = 0", (person['name'],)).fetchone()[0]
-    # if count > 0:
-    #     raise HTTPException(status_code=400, detail="Cannot delete person with unsettled social ledger entries.")
+    if person["is_self"]:
+        connection.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete the person marked as 'self'.",
+        )
 
     connection.execute("DELETE FROM people WHERE id = ?", (person_id,))
     connection.commit()
     connection.close()
     return
+
+
+@app.patch("/people/{person_id}/set-self", response_model=Person)
+def set_self_person(person_id: int):
+    connection = get_db_connection()
+
+    person = connection.execute("SELECT id FROM people WHERE id = ?", (person_id,)).fetchone()
+    if person is None:
+        connection.close()
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    try:
+        connection.execute("UPDATE people SET is_self = 0")
+        connection.execute("UPDATE people SET is_self = 1 WHERE id = ?", (person_id,))
+        connection.commit()
+    except Exception as e:
+        connection.rollback()
+        connection.close()
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+    updated_person = connection.execute(
+        "SELECT id, name, created_at, is_self FROM people WHERE id = ?", (person_id,)
+    ).fetchone()
+
+    connection.close()
+    return dict(updated_person)
 
 
 @app.get("/categories", response_model=list[Category])

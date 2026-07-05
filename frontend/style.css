@@ -309,6 +309,22 @@ tbody tr.ledger-settled {
     border-color: #fecaca;
 }
 
+.settings-list .set-self-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: normal;
+    background: #e0e7ff;
+    color: #3730a3;
+    border-color: #c7d2fe;
+}
+
+.settings-list .self-badge {
+    font-weight: 600;
+    color: #16a34a;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
 /* === Split Rows for Forms === */
 .split-row {
     display: flex;

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Ledger - PaisaLog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Social Ledger</h1>
+    <button type="button" id="refresh-btn" style="margin-bottom: 16px; width: auto;">Refresh</button>
+    <p id="message"></p>
+
+    <!-- Section 1: They Owe Me -->
+    <section>
+        <h2 id="they-owe-me-header">They Owe Me</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Paid By</th>
+                    <th>Amount</th>
+                    <th>Category</th>
+                    <th>Note</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="they-owe-me-body"></tbody>
+        </table>
+    </section>
+
+    <!-- Section 2: I Owe Them -->
+    <section>
+        <h2 id="i-owe-them-header">I Owe Them</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Person</th>
+                    <th>Amount</th>
+                    <th>Category</th>
+                    <th>Note</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="i-owe-them-body"></tbody>
+        </table>
+    </section>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const refreshBtn = document.getElementById('refresh-btn');
+            const messageEl = document.getElementById('message');
+            const theyOweMeHeader = document.getElementById('they-owe-me-header');
+            const theyOweMeBody = document.getElementById('they-owe-me-body');
+            const iOweThemHeader = document.getElementById('i-owe-them-header');
+            const iOweThemBody = document.getElementById('i-owe-them-body');
+
+            // --- Data Loading and Rendering ---
+            async function loadSocialData() {
+                messageEl.textContent = 'Loading data...';
+                theyOweMeBody.innerHTML = '';
+                iOweThemBody.innerHTML = '';
+
+                try {
+                    const [peopleRes, socialRes] = await Promise.all([
+                        fetch(`${API_BASE_URL}/people`),
+                        fetch(`${API_BASE_URL}/social-ledger`)
+                    ]);
+
+                    if (!peopleRes.ok || !socialRes.ok) throw new Error('Failed to fetch data.');
+
+                    const people = await peopleRes.json();
+                    const socialEntries = await socialRes.json();
+
+                    const selfPerson = people.find(p => p.is_self);
+                    const selfName = selfPerson ? selfPerson.name : null;
+
+                    if (!selfName) {
+                        messageEl.textContent = 'Error: No person is set as "self" in Settings.';
+                        return;
+                    }
+
+                    // Filter for "They Owe Me"
+                    const theyOweMeEntries = socialEntries.filter(entry =>
+                        entry.direction === 'i_paid' && !entry.is_settled && entry.person_name !== selfName
+                    );
+                    const theyOweMeTotal = theyOweMeEntries.reduce((sum, entry) => sum + entry.amount, 0);
+                    renderTable(theyOweMeBody, theyOweMeHeader, 'They Owe Me', theyOweMeEntries, theyOweMeTotal, '#16a34a', 'person_name');
+
+                    // Filter for "I Owe Them"
+                    const iOweThemEntries = socialEntries.filter(entry =>
+                        entry.direction === 'they_paid' && !entry.is_settled && entry.person_name === selfName
+                    );
+                    const iOweThemTotal = iOweThemEntries.reduce((sum, entry) => sum + entry.amount, 0);
+                    renderTable(iOweThemBody, iOweThemHeader, 'I Owe Them', iOweThemEntries, iOweThemTotal, '#dc2626', 'paid_by');
+
+                    messageEl.textContent = '';
+
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            function renderTable(tbody, headerEl, title, entries, total, color, personField = 'person_name') {
+                headerEl.innerHTML = `${title} <span style="color: ${color};"> (₹${total.toFixed(2)})</span>`;
+                tbody.innerHTML = '';
+
+                if (entries.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No unsettled entries found.</td></tr>`;
+                    return;
+                }
+
+                entries.forEach(entry => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${entry.date}</td>
+                        <td>${entry[personField]}</td>
+                        <td>${entry.amount.toFixed(2)}</td>
+                        <td>${entry.category}</td>
+                        <td>${entry.note || ''}</td>
+                        <td><button class="settle-btn" data-id="${entry.id}">Settle</button></td>
+                    `;
+                    row.querySelector('.settle-btn').addEventListener('click', () => settleEntry(entry.id));
+                });
+            }
+
+            async function settleEntry(id) {
+                if (!confirm('Are you sure you want to mark this as settled?')) return;
+
+                messageEl.textContent = 'Settling...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/social-ledger/${id}/settle`, { method: 'PATCH' });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to settle entry.');
+                    }
+                    messageEl.textContent = 'Entry settled successfully.';
+                    setTimeout(() => messageEl.textContent = '', 2000);
+                    loadSocialData(); // Reload data
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            refreshBtn.addEventListener('click', loadSocialData);
+            loadSocialData();
+        });
+    </script>
+</body>
+</html>

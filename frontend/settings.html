@@ -167,16 +167,58 @@
                             const li = document.createElement('li');
                             li.textContent = person.name;
 
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.textContent = 'Delete';
-                            deleteBtn.classList.add('delete-btn');
-                            deleteBtn.addEventListener('click', () => deletePerson(person.id));
-                            li.appendChild(deleteBtn);
+                            const controlsContainer = document.createElement('div');
+                            controlsContainer.style.display = 'flex';
+                            controlsContainer.style.gap = '8px';
+                            controlsContainer.style.alignItems = 'center';
+
+                            if (person.is_self) {
+                                const selfBadge = document.createElement('span');
+                                selfBadge.textContent = '✓ This is you';
+                                selfBadge.classList.add('self-badge');
+                                controlsContainer.appendChild(selfBadge);
+                            } else {
+                                const setSelfBtn = document.createElement('button');
+                                setSelfBtn.textContent = 'Set as Me';
+                                setSelfBtn.classList.add('set-self-btn');
+                                setSelfBtn.addEventListener('click', () => setAsSelf(person.id));
+                                controlsContainer.appendChild(setSelfBtn);
+
+                                const deleteBtn = document.createElement('button');
+                                deleteBtn.textContent = 'Delete';
+                                deleteBtn.classList.add('delete-btn');
+                                deleteBtn.addEventListener('click', () => deletePerson(person.id));
+                                controlsContainer.appendChild(deleteBtn);
+                            }
+
+                            li.appendChild(controlsContainer);
 
                             peopleList.appendChild(li);
                         });
                     }
                     personMessageEl.textContent = '';
+                } catch (error) {
+                    personMessageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            async function setAsSelf(id) {
+                personMessageEl.textContent = 'Setting...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/people/${id}/set-self`, {
+                        method: 'PATCH'
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to set as self.');
+                    }
+                    
+                    personMessageEl.textContent = 'Successfully updated.';
+                    setTimeout(() => personMessageEl.textContent = '', 3000);
+                    loadPeople(); // Reload the list
+
                 } catch (error) {
                     personMessageEl.textContent = `Error: ${error.message}`;
                     console.error(error);

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Balance - PaisaLog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Daily Balance</h1>
+
+    <div class="daily-balance-panels">
+        <!-- Morning Panel -->
+        <form id="morning-balance-form" class="daily-balance-panel">
+            <h2>Morning</h2>
+            <div>
+                <label for="morning-date">Date</label>
+                <input type="date" id="morning-date" required>
+            </div>
+            <div>
+                <label for="cash-opening">Cash Opening</label>
+                <input type="number" id="cash-opening" step="0.01" required>
+            </div>
+            <div>
+                <label for="online-opening">Online Opening</label>
+                <input type="number" id="online-opening" step="0.01" required>
+            </div>
+            <button type="submit">Save Morning</button>
+            <p id="morning-message"></p>
+        </form>
+
+        <!-- Night Panel -->
+        <form id="night-balance-form" class="daily-balance-panel">
+            <h2>Night</h2>
+            <div>
+                <label for="night-date">Date</label>
+                <input type="date" id="night-date" required>
+            </div>
+            <div>
+                <label for="cash-closing">Cash Closing</label>
+                <input type="number" id="cash-closing" step="0.01" required>
+            </div>
+            <div>
+                <label for="online-closing">Online Closing</label>
+                <input type="number" id="online-closing" step="0.01" required>
+            </div>
+            <button type="submit">Save Night</button>
+            <p id="night-message"></p>
+        </form>
+    </div>
+
+    <button type="button" id="load-balances-btn">Load Daily Balances</button>
+    <p id="balances-table-message"></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Cash Opening</th>
+                <th>Cash Closing</th>
+                <th>Online Opening</th>
+                <th>Online Closing</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody id="balances-table-body"></tbody>
+    </table>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element References ---
+            const morningForm = document.getElementById('morning-balance-form');
+            const nightForm = document.getElementById('night-balance-form');
+            const morningMessage = document.getElementById('morning-message');
+            const nightMessage = document.getElementById('night-message');
+            const loadBtn = document.getElementById('load-balances-btn');
+            const tableBody = document.getElementById('balances-table-body');
+            const tableMessage = document.getElementById('balances-table-message');
+
+            // --- Initial Setup ---
+            const getTodayString = () => new Date().toISOString().split('T')[0];
+            const today = getTodayString();
+            document.getElementById('morning-date').value = today;
+            document.getElementById('night-date').value = today;
+
+            // --- Reusable Save Function ---
+            async function saveBalance(payload, form, messageEl) {
+                messageEl.textContent = 'Saving...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/daily-balance`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to save balance.');
+                    }
+                    messageEl.textContent = 'Balance saved successfully!';
+                    form.reset();
+                    form.querySelector('input[type="date"]').value = today; // Re-set date
+                    setTimeout(() => messageEl.textContent = '', 3000);
+                    loadBalances(); // Refresh the table
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                }
+            }
+
+            // --- Form Event Listeners ---
+            morningForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const payload = {
+                    date: document.getElementById('morning-date').value,
+                    cash_opening: parseFloat(document.getElementById('cash-opening').value),
+                    online_opening: parseFloat(document.getElementById('online-opening').value)
+                };
+                saveBalance(payload, morningForm, morningMessage);
+            });
+
+            nightForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const payload = {
+                    date: document.getElementById('night-date').value,
+                    cash_closing: parseFloat(document.getElementById('cash-closing').value),
+                    online_closing: parseFloat(document.getElementById('online-closing').value)
+                };
+                saveBalance(payload, nightForm, nightMessage);
+            });
+
+            // --- Table Loading Logic ---
+            async function loadBalances() {
+                tableMessage.textContent = 'Loading...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/daily-balance`);
+                    if (!response.ok) throw new Error('Failed to load balances.');
+                    const balances = await response.json();
+                    tableBody.innerHTML = '';
+
+                    if (balances.length === 0) {
+                        tableMessage.textContent = 'No daily balances found.';
+                        return;
+                    }
+                    balances.forEach(balance => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${balance.date}</td>
+                            <td>${balance.cash_opening?.toFixed(2) ?? ''}</td>
+                            <td>${balance.cash_closing?.toFixed(2) ?? ''}</td>
+                            <td>${balance.online_opening?.toFixed(2) ?? ''}</td>
+                            <td>${balance.online_closing?.toFixed(2) ?? ''}</td>
+                            <td>${balance.note || ''}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                    tableMessage.textContent = '';
+                } catch (error) {
+                    tableMessage.textContent = `Error: ${error.message}`;
+                }
+            }
+
+            loadBtn.addEventListener('click', loadBalances);
+        });
+    </script>
+</body>
+</html>
