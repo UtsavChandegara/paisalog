@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>People - PaisaLog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>People Deep Dive</h1>
+
+    <div class="report-controls">
+        <div>
+            <label for="person-select">Select a Person</label>
+            <select id="person-select">
+                <option value="">-- Select --</option>
+            </select>
+        </div>
+    </div>
+    <p id="message">Please select a person to view their details.</p>
+
+    <div id="person-details" style="display: none;">
+        <h3>Summary</h3>
+        <div id="report-summary">
+            <!-- Summary cards will be rendered here -->
+        </div>
+
+        <section>
+            <h2>I Paid For Them</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Category</th>
+                        <th>Note</th>
+                        <th>Settled</th>
+                        <th>Settled At</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="i-paid-for-body"></tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>They Paid For Me</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Category</th>
+                        <th>Note</th>
+                        <th>Settled</th>
+                        <th>Settled At</th>
+                    </tr>
+                </thead>
+                <tbody id="they-paid-for-body"></tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>Transactions Involving Them</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Mode</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-body"></tbody>
+            </table>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Global State ---
+            let selfName = null;
+
+            // --- DOM Elements ---
+            const personSelect = document.getElementById('person-select');
+            const messageEl = document.getElementById('message');
+            const personDetailsContainer = document.getElementById('person-details');
+            const summaryContainer = document.getElementById('report-summary');
+            const iPaidForBody = document.getElementById('i-paid-for-body');
+            const theyPaidForBody = document.getElementById('they-paid-for-body');
+            const transactionsBody = document.getElementById('transactions-body');
+
+            // --- Initial Data Load ---
+            async function loadInitialData() {
+                messageEl.textContent = 'Loading people...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/people`);
+                    if (!response.ok) throw new Error('Failed to fetch people.');
+                    const people = await response.json();
+
+                    const selfPerson = people.find(p => p.is_self);
+                    selfName = selfPerson ? selfPerson.name : null;
+
+                    if (!selfName) {
+                        messageEl.textContent = 'Error: No person is set as "self" in Settings.';
+                        return;
+                    }
+
+                    personSelect.innerHTML = '<option value="">-- Select --</option>';
+                    people.forEach(person => {
+                        if (!person.is_self) { // Exclude self from dropdown
+                            const option = document.createElement('option');
+                            option.value = person.name;
+                            option.textContent = person.name;
+                            personSelect.appendChild(option);
+                        }
+                    });
+                    messageEl.textContent = 'Please select a person to view their details.';
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            // --- Data Loading for Selected Person ---
+            async function loadPersonData(selectedPersonName) {
+                if (!selectedPersonName) {
+                    personDetailsContainer.style.display = 'none';
+                    messageEl.textContent = 'Please select a person to view their details.';
+                    return;
+                }
+
+                messageEl.textContent = `Loading data for ${selectedPersonName}...`;
+                personDetailsContainer.style.display = 'none';
+
+                try {
+                    const [socialRes, transactionsRes] = await Promise.all([
+                        fetch(`${API_BASE_URL}/social-ledger`),
+                        fetch(`${API_BASE_URL}/transactions`)
+                    ]);
+
+                    if (!socialRes.ok || !transactionsRes.ok) throw new Error('Failed to fetch data.');
+
+                    const allSocialEntries = await socialRes.json();
+                    const allTransactions = await transactionsRes.json();
+
+                    // --- Filtering ---
+                    const theyOweMeEntries = allSocialEntries.filter(e => e.direction === 'i_paid' && !e.is_settled && e.person_name === selectedPersonName);
+                    const iOweThemEntries = allSocialEntries.filter(e => e.direction === 'they_paid' && !e.is_settled && e.person_name === selfName && e.paid_by === selectedPersonName);
+                    const iPaidForEntries = allSocialEntries.filter(e => e.direction === 'i_paid' && e.person_name === selectedPersonName);
+                    const theyPaidForEntries = allSocialEntries.filter(e => e.direction === 'they_paid' && e.person_name === selfName && e.paid_by === selectedPersonName);
+                    const relatedTransactions = allTransactions.filter(tx => tx.received_from === selectedPersonName);
+
+                    // --- Calculations ---
+                    const theyOweMeTotal = theyOweMeEntries.reduce((sum, e) => sum + e.amount, 0);
+                    const iOweThemTotal = iOweThemEntries.reduce((sum, e) => sum + e.amount, 0);
+                    const netSocial = theyOweMeTotal - iOweThemTotal;
+
+                    // --- Rendering ---
+                    renderSummary(theyOweMeTotal, iOweThemTotal, netSocial);
+                    renderIPaidForTable(iPaidForEntries);
+                    renderTheyPaidForTable(theyPaidForEntries);
+                    renderTransactionsTable(relatedTransactions);
+                    
+                    messageEl.textContent = '';
+                    personDetailsContainer.style.display = 'block';
+
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            // --- Rendering Functions ---
+            function renderSummary(theyOwe, iOwe, net) {
+                const format = (val) => val.toFixed(2);
+                let netColor = net > 0.01 ? '#2563eb' : (net < -0.01 ? '#dc2626' : '#6b7280');
+
+                summaryContainer.innerHTML = `
+                    <div>
+                        <span>They Owe Me</span>
+                        <strong style="color: #16a34a;">₹${format(theyOwe)}</strong>
+                    </div>
+                    <div>
+                        <span>I Owe Them</span>
+                        <strong style="color: #dc2626;">₹${format(iOwe)}</strong>
+                    </div>
+                    <div>
+                        <span>Net Social Balance</span>
+                        <strong style="color: ${netColor};">₹${format(net)}</strong>
+                    </div>
+                `;
+            }
+
+            function renderTable(tbody, entries, renderRowFunc, noDataMessage, colSpan) {
+                tbody.innerHTML = '';
+                if (entries.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center;">${noDataMessage}</td></tr>`;
+                    return;
+                }
+                entries.forEach(entry => {
+                    tbody.innerHTML += renderRowFunc(entry);
+                });
+            }
+
+            function renderIPaidForTable(entries) {
+                renderTable(iPaidForBody, entries, (entry) => `
+                    <tr class="${entry.is_settled ? 'ledger-settled' : ''}">
+                        <td>${entry.date}</td>
+                        <td>${entry.amount.toFixed(2)}</td>
+                        <td>${entry.category}</td>
+                        <td>${entry.note || ''}</td>
+                        <td>${entry.is_settled ? 'Yes' : 'No'}</td>
+                        <td>${entry.settled_at ? new Date(entry.settled_at).toLocaleString() : ''}</td>
+                        <td>${!entry.is_settled ? `<button class="settle-btn" data-id="${entry.id}">Settle</button>` : ''}</td>
+                    </tr>
+                `, 'No entries where you paid for them.', 7);
+                
+                iPaidForBody.querySelectorAll('.settle-btn').forEach(btn => {
+                    btn.addEventListener('click', () => settleEntry(btn.dataset.id));
+                });
+            }
+
+            function renderTheyPaidForTable(entries) {
+                renderTable(theyPaidForBody, entries, (entry) => `
+                    <tr class="${entry.is_settled ? 'ledger-settled' : ''}">
+                        <td>${entry.date}</td>
+                        <td>${entry.amount.toFixed(2)}</td>
+                        <td>${entry.category}</td>
+                        <td>${entry.note || ''}</td>
+                        <td>${entry.is_settled ? 'Yes' : 'No'}</td>
+                        <td>${entry.settled_at ? new Date(entry.settled_at).toLocaleString() : ''}</td>
+                    </tr>
+                `, 'No entries where they paid for you.', 6);
+            }
+
+            function renderTransactionsTable(entries) {
+                renderTable(transactionsBody, entries, (tx) => `
+                    <tr>
+                        <td>${tx.date}</td>
+                        <td>${tx.amount.toFixed(2)}</td>
+                        <td>${tx.type}</td>
+                        <td>${tx.category}</td>
+                        <td>${tx.mode}</td>
+                        <td>${tx.note || ''}</td>
+                    </tr>
+                `, 'No transactions found involving this person.', 6);
+            }
+
+            // --- Actions ---
+            async function settleEntry(id) {
+                if (!confirm('Are you sure you want to mark this as settled?')) return;
+                messageEl.textContent = 'Settling...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/social-ledger/${id}/settle`, { method: 'PATCH' });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to settle entry.');
+                    }
+                    messageEl.textContent = 'Entry settled successfully. Reloading...';
+                    setTimeout(() => {
+                        loadPersonData(personSelect.value);
+                    }, 1500);
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            // --- Event Listeners ---
+            personSelect.addEventListener('change', () => {
+                loadPersonData(personSelect.value);
+            });
+
+            // --- Initial Call ---
+            loadInitialData();
+        });
+    </script>
+</body>
+</html>

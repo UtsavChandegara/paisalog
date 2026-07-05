@@ -38,6 +38,10 @@ function renderNav() {
                 <span class="nav-icon">👥</span>
                 <span class="nav-label">Social</span>
             </a>
+            <a href="people.html" class="nav-item" data-page="people.html">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">People</span>
+            </a>
             <a href="balance.html" class="nav-item" data-page="balance.html">
                 <span class="nav-icon">⚖️</span>
                 <span class="nav-label">Balance</span>
