@@ -45,6 +45,38 @@ def create_tables():
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    # Insert default categories if the table is empty
+    cursor.execute("SELECT COUNT(*) FROM categories")
+    if cursor.fetchone()[0] == 0:
+        default_categories = [
+            ("Food",), ("Transport",), ("Shopping",), ("Rent",),
+            ("Stationary",), ("Medical",), ("Entertainment",),
+            ("Recharge",), ("Education",), ("Other",)
+        ]
+        cursor.executemany(
+            "INSERT INTO categories (name) VALUES (?)", default_categories
+        )
+
     migrate_transactions_table(cursor)
     migrate_daily_balance_table(cursor)
 
@@ -57,9 +89,14 @@ def create_tables():
             direction TEXT NOT NULL,
             person_name TEXT NOT NULL,
             mode TEXT NOT NULL DEFAULT 'cash',
-            reason TEXT,
+            reason TEXT, -- for backward compatibility
+            note TEXT,
             is_settled INTEGER NOT NULL DEFAULT 0,
-            settled_at TEXT
+            settled_at TEXT,
+            source TEXT NOT NULL DEFAULT 'manual',
+            category TEXT NOT NULL DEFAULT 'Other',
+            group_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
@@ -111,6 +148,46 @@ def migrate_social_ledger_table(cursor):
             """
             ALTER TABLE social_ledger
             ADD COLUMN mode TEXT NOT NULL DEFAULT 'cash'
+            """
+        )
+
+    if "source" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE social_ledger
+            ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'
+            """
+        )
+
+    if "category" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE social_ledger
+            ADD COLUMN category TEXT NOT NULL DEFAULT 'Other'
+            """
+        )
+
+    if "note" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE social_ledger
+            ADD COLUMN note TEXT
+            """
+        )
+
+    if "group_id" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE social_ledger
+            ADD COLUMN group_id TEXT
+            """
+        )
+
+    if "created_at" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE social_ledger
+            ADD COLUMN created_at TIMESTAMP DEFAULT '2026-01-01 00:00:00'
             """
         )
 

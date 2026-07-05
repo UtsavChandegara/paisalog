@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Log - PaisaLog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Full Log</h1>
+
+    <!-- Section 1: Transactions Log -->
+    <section>
+        <h2>Transactions Log</h2>
+        <form id="transactions-filter-form" class="report-controls">
+            <div>
+                <label for="tx-date-from">Date From</label>
+                <input type="date" id="tx-date-from">
+            </div>
+            <div>
+                <label for="tx-date-to">Date To</label>
+                <input type="date" id="tx-date-to">
+            </div>
+            <div>
+                <label for="tx-category">Category</label>
+                <select id="tx-category">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            <div>
+                <label for="tx-mode">Mode</label>
+                <select id="tx-mode">
+                    <option value="all">All</option>
+                    <option value="cash">Cash</option>
+                    <option value="online">Online</option>
+                </select>
+            </div>
+            <div>
+                <label for="tx-type">Type</label>
+                <select id="tx-type">
+                    <option value="all">All</option>
+                    <option value="debit">Debit</option>
+                    <option value="credit">Credit</option>
+                    <option value="deposit">Deposit</option>
+                </select>
+            </div>
+            <button type="button" id="tx-filter-btn">Filter</button>
+            <button type="button" id="tx-clear-btn">Clear</button>
+        </form>
+        <p id="transactions-log-message">Loading transactions...</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>My Share</th>
+                    <th>Others Share</th>
+                    <th>For Person</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Mode</th>
+                    <th>Note</th>
+                    <th>Total</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody id="transactions-log-body"></tbody>
+        </table>
+    </section>
+
+    <!-- Section 2: Social Ledger Log -->
+    <section>
+        <h2>Social Ledger Log</h2>
+        <form id="social-filter-form" class="report-controls">
+            <div>
+                <label for="social-person">Person</label>
+                <input type="text" id="social-person">
+            </div>
+            <div>
+                <label for="social-direction">Direction</label>
+                <select id="social-direction">
+                    <option value="all">All</option>
+                    <option value="i_paid">I Paid</option>
+                    <option value="they_paid">They Paid</option>
+                </select>
+            </div>
+            <div>
+                <label for="social-settled">Settled</label>
+                <select id="social-settled">
+                    <option value="all">All</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </select>
+            </div>
+            <button type="button" id="social-filter-btn">Filter</button>
+            <button type="button" id="social-clear-btn">Clear</button>
+        </form>
+        <p id="social-log-message">Loading social ledger...</p>
+        <div id="social-groups-container">
+            <!-- Group cards will be rendered here -->
+        </div>
+    </section>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Global State ---
+            let allTransactions = [];
+            let allSocialGroups = [];
+
+            // --- DOM Elements ---
+            const txLogBody = document.getElementById('transactions-log-body');
+            const txLogMessage = document.getElementById('transactions-log-message');
+            const socialGroupsContainer = document.getElementById('social-groups-container');
+            const socialLogMessage = document.getElementById('social-log-message');
+
+            // --- Render Functions ---
+            function renderTransactions(transactions) {
+                txLogBody.innerHTML = '';
+                if (transactions.length === 0) {
+                    txLogMessage.textContent = 'No transactions found.';
+                    return;
+                }
+                txLogMessage.textContent = '';
+
+                transactions.forEach(tx => {
+                    const myShare = tx.amount - (tx.others_share || 0);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${tx.date}</td>
+                        <td>${myShare.toFixed(2)}</td>
+                        <td>${(tx.others_share || 0).toFixed(2)}</td>
+                        <td>${tx.others_person || ''}</td>
+                        <td>${tx.type}</td>
+                        <td>${tx.category}</td>
+                        <td>${tx.mode}</td>
+                        <td>${tx.note || ''}</td>
+                        <td>${tx.amount.toFixed(2)}</td>
+                        <td>${new Date(tx.created_at).toLocaleString()}</td>
+                    `;
+                    txLogBody.appendChild(row);
+                });
+            }
+
+            async function settleEntry(entryId) {
+                if (!confirm('Are you sure you want to settle this entry?')) return;
+
+                socialLogMessage.textContent = 'Settling...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/social-ledger/${entryId}/settle`, {
+                        method: 'PATCH'
+                    });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to settle entry.');
+                    }
+                    socialLogMessage.textContent = 'Entry settled successfully. Reloading...';
+                    setTimeout(() => {
+                        socialLogMessage.textContent = '';
+                        loadLogs(); // Reload all data
+                    }, 1500);
+                } catch (error) {
+                    socialLogMessage.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            function renderSocialLedgerGroups(groups) {
+                socialGroupsContainer.innerHTML = '';
+                if (groups.length === 0) {
+                    socialLogMessage.textContent = 'No social ledger entries found.';
+                    return;
+                }
+                socialLogMessage.textContent = '';
+
+                groups.forEach(group => {
+                    const directionClass = group.direction === 'i_paid' ? 'ledger-i-paid' : 'ledger-they-paid';
+
+                    const entriesHTML = group.entries.map(entry => `
+                        <tr class="${entry.is_settled ? 'ledger-settled' : ''}">
+                            <td>${entry.person_name}</td>
+                            <td>${entry.amount.toFixed(2)}</td>
+                            <td>${entry.note || ''}</td>
+                            <td>${entry.is_settled ? 'Yes' : 'No'}</td>
+                            <td>${entry.settled_at ? new Date(entry.settled_at).toLocaleString() : ''}</td>
+                            <td>
+                                ${!entry.is_settled && group.direction === 'i_paid' ? `<button type="button" class="settle-btn" data-id="${entry.id}">Settle</button>` : ''}
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    const cardHTML = `
+                        <div class="social-group-card">
+                            <div class="social-group-header ${directionClass}" data-group-id="${group.group_id}">
+                                <div class="social-group-header-item"><span>Date:</span><strong>${group.date}</strong></div>
+                                <div class="social-group-header-item"><span>Category:</span><strong>${group.category}</strong></div>
+                                <div class="social-group-header-item"><span>Total:</span><strong>₹${group.total_amount.toFixed(2)}</strong></div>
+                                <div class="social-group-header-item"><span>Note:</span><strong>${group.note || 'N/A'}</strong></div>
+                                <div class="social-group-expand">▼</div>
+                            </div>
+                            <div class="social-group-body" id="body-${group.group_id}">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Person</th>
+                                            <th>Amount</th>
+                                            <th>Note</th>
+                                            <th>Settled</th>
+                                            <th>Settled At</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${entriesHTML}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                    socialGroupsContainer.insertAdjacentHTML('beforeend', cardHTML);
+                });
+
+                // Add event listeners after rendering
+                document.querySelectorAll('.social-group-header').forEach(header => {
+                    header.addEventListener('click', () => {
+                        const groupId = header.dataset.groupId;
+                        const body = document.getElementById(`body-${groupId}`);
+                        header.classList.toggle('open');
+                        body.classList.toggle('open');
+                    });
+                });
+
+                document.querySelectorAll('.settle-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        event.stopPropagation(); // Prevent card from toggling
+                        const entryId = button.dataset.id;
+                        settleEntry(entryId);
+                    });
+                });
+            }
+
+            // --- Category Dropdown ---
+            async function loadCategories() {
+                const categorySelect = document.getElementById('tx-category');
+                try {
+                    const response = await fetch(`${API_BASE_URL}/categories`);
+                    if (!response.ok) throw new Error('Failed to load categories');
+
+                    const categories = await response.json();
+                    categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category.name;
+                        option.textContent = category.name;
+                        categorySelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading categories:', error);
+                }
+            }
+
+            // --- Filter Logic ---
+            document.getElementById('tx-filter-btn').addEventListener('click', () => {
+                const dateFrom = document.getElementById('tx-date-from').value;
+                const dateTo = document.getElementById('tx-date-to').value;
+                const category = document.getElementById('tx-category').value;
+                const mode = document.getElementById('tx-mode').value;
+                const type = document.getElementById('tx-type').value;
+
+                const filtered = allTransactions.filter(tx => {
+                    const categoryMatch = category ? tx.category === category : true;
+                    const dateFromMatch = dateFrom ? tx.date >= dateFrom : true;
+                    const dateToMatch = dateTo ? tx.date <= dateTo : true;
+                    const modeMatch = mode !== 'all' ? tx.mode === mode : true;
+                    const typeMatch = type !== 'all' ? tx.type === type : true;
+                    return categoryMatch && dateFromMatch && dateToMatch && modeMatch && typeMatch;
+                });
+                renderTransactions(filtered);
+            });
+
+            document.getElementById('tx-clear-btn').addEventListener('click', () => {
+                document.getElementById('transactions-filter-form').reset();
+                renderTransactions(allTransactions);
+            });
+
+            document.getElementById('social-filter-btn').addEventListener('click', () => {
+                const person = document.getElementById('social-person').value.toLowerCase();
+                const direction = document.getElementById('social-direction').value;
+                const settled = document.getElementById('social-settled').value;
+
+                const filtered = allSocialGroups.filter(group => {
+                    const personMatch = person ? group.entries.some(e => e.person_name.toLowerCase().includes(person)) : true;
+                    const directionMatch = direction !== 'all' ? group.direction === direction : true;
+                    
+                    let settledMatch = true;
+                    if (settled === 'yes') {
+                        settledMatch = group.entries.every(e => e.is_settled);
+                    } else if (settled === 'no') {
+                        settledMatch = group.entries.some(e => !e.is_settled);
+                    }
+
+                    return personMatch && directionMatch && settledMatch;
+                });
+                renderSocialLedgerGroups(filtered);
+            });
+
+            document.getElementById('social-clear-btn').addEventListener('click', () => {
+                document.getElementById('social-filter-form').reset();
+                renderSocialLedgerGroups(allSocialGroups);
+            });
+
+            // --- Initial Data Load ---
+            async function loadLogs() {
+                try {
+                    const [txRes, socialGroupsRes] = await Promise.all([
+                        fetch(`${API_BASE_URL}/transactions`),
+                        fetch(`${API_BASE_URL}/social-ledger/groups`)
+                    ]);
+
+                    if (!txRes.ok) throw new Error('Failed to load transactions');
+                    allTransactions = await txRes.json();
+                    renderTransactions(allTransactions);
+
+                    if (!socialGroupsRes.ok) throw new Error('Failed to load social ledger groups');
+                    allSocialGroups = await socialGroupsRes.json();
+                    renderSocialLedgerGroups(allSocialGroups);
+
+                } catch (error) {
+                    txLogMessage.textContent = `Error: ${error.message}`;
+                    socialLogMessage.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            loadLogs();
+            loadCategories();
+        });
+    </script>
+</body>
+</html>

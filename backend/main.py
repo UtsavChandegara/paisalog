@@ -1,18 +1,29 @@
 from contextlib import asynccontextmanager
 from calendar import monthrange
 from datetime import date, timedelta
+from collections import defaultdict
+import sqlite3
+import uuid
 
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import create_tables, get_db_connection
 from .models import (
+    Category,
+    CategoryCreate,
     DailyBalance,
     DailyBalanceCreate,
+    Person,
+    PersonCreate,
     SocialLedger,
     SocialLedgerCreate,
+    SocialLedgerCreateWithSplits,
+    SocialLedgerEntry,
+    SocialLedgerGroup,
     Transaction,
     TransactionCreate,
+    TransactionWithSplits,
 )
 
 
@@ -32,6 +43,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+DEFAULT_CATEGORIES = [
+    "Food", "Transport", "Shopping", "Rent", "Stationary",
+    "Medical", "Entertainment", "Recharge", "Education", "Other"
+]
+
 
 @app.post(
     "/transactions",
@@ -42,8 +58,6 @@ def create_transaction(transaction: TransactionCreate):
     connection = get_db_connection()
     cursor = connection.cursor()
 
-    total_amount = transaction.amount + transaction.others_share
-
     cursor.execute(
         """
         INSERT INTO transactions (date, amount, type, category, mode, note, others_share, others_person)
@@ -51,7 +65,7 @@ def create_transaction(transaction: TransactionCreate):
         """,
         (
             transaction.date,
-            total_amount,
+            transaction.amount,
             transaction.type,
             transaction.category,
             transaction.mode,
@@ -61,24 +75,6 @@ def create_transaction(transaction: TransactionCreate):
         ),
     )
     transaction_id = cursor.lastrowid
-
-    if transaction.others_share > 0 and transaction.others_person:
-        cursor.execute(
-            """
-            INSERT INTO social_ledger (date, amount, direction, person_name, mode, reason, is_settled)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                transaction.date,
-                transaction.others_share,
-                "i_paid",
-                transaction.others_person,
-                transaction.mode,
-                transaction.note,
-                0,
-            ),
-        )
-
     connection.commit()
 
     saved_transaction = connection.execute(
@@ -506,61 +502,54 @@ def get_daily_balance(daily_balance_id: int):
 
 @app.post(
     "/social-ledger",
-    response_model=SocialLedger,
+    response_model=list[SocialLedger],
     status_code=status.HTTP_201_CREATED,
 )
-def create_social_ledger_entry(social_ledger: SocialLedgerCreate):
+def create_social_ledger_entry(social_ledger: SocialLedgerCreateWithSplits):
     connection = get_db_connection()
     cursor = connection.cursor()
+    created_entries = []
+    group_id = str(uuid.uuid4())
 
-    cursor.execute(
-        """
-        INSERT INTO social_ledger (
-            date,
-            amount,
-            direction,
-            person_name,
-            mode,
-            reason,
-            is_settled,
-            settled_at
+    for split in social_ledger.splits:
+        person = connection.execute("SELECT name FROM people WHERE id = ?", (split.person_id,)).fetchone()
+        if not person:
+            raise HTTPException(status_code=400, detail=f"Person with id {split.person_id} not found.")
+
+        cursor.execute(
+            """
+            INSERT INTO social_ledger (date, amount, direction, person_name, mode, note, category, is_settled, source, group_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                social_ledger.date,
+                split.amount,
+                social_ledger.direction,
+                person["name"],
+                social_ledger.mode,
+                split.note or social_ledger.note,
+                social_ledger.category,
+                0,
+                "manual",
+                group_id,
+            ),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            social_ledger.date,
-            social_ledger.amount,
-            social_ledger.direction,
-            social_ledger.person_name,
-            social_ledger.mode,
-            social_ledger.reason,
-            int(social_ledger.is_settled),
-            social_ledger.settled_at,
-        ),
-    )
+        entry_id = cursor.lastrowid
+        new_entry = connection.execute(
+            """
+            SELECT id, date, amount, direction, person_name, mode,
+                   COALESCE(note, reason) as note, category, is_settled, settled_at,
+                   source, group_id, created_at
+            FROM social_ledger
+            WHERE id = ?
+            """,
+            (entry_id,)
+        ).fetchone()
+        created_entries.append(dict(new_entry))
+
     connection.commit()
-
-    social_ledger_id = cursor.lastrowid
-    saved_social_ledger = connection.execute(
-        """
-        SELECT
-            id,
-            date,
-            amount,
-            direction,
-            person_name,
-            mode,
-            reason,
-            is_settled,
-            settled_at
-        FROM social_ledger
-        WHERE id = ?
-        """,
-        (social_ledger_id,),
-    ).fetchone()
-
     connection.close()
-    return dict(saved_social_ledger)
+    return created_entries
 
 
 @app.get("/social-ledger", response_model=list[SocialLedger])
@@ -576,9 +565,13 @@ def get_social_ledger_entries():
             direction,
             person_name,
             mode,
-            reason,
+            COALESCE(note, reason) as note,
+            category,
             is_settled,
-            settled_at
+            settled_at,
+            source,
+            group_id,
+            created_at
         FROM social_ledger
         ORDER BY is_settled ASC, date DESC, id DESC
         """
@@ -587,6 +580,56 @@ def get_social_ledger_entries():
     connection.close()
     return [dict(entry) for entry in social_ledger_entries]
 
+
+@app.get("/social-ledger/groups", response_model=list[SocialLedgerGroup])
+def get_social_ledger_groups():
+    connection = get_db_connection()
+    entries = connection.execute(
+        """
+        SELECT
+            id, date, amount, direction, person_name, mode, COALESCE(note, reason) as note,
+            category, is_settled, settled_at, source, group_id, created_at
+        FROM social_ledger
+        ORDER BY created_at DESC
+        """
+    ).fetchall()
+    connection.close()
+
+    groups = defaultdict(list)
+    for entry in entries:
+        # If group_id is null, treat it as a unique group using its own ID as the key
+        key = entry["group_id"] if entry["group_id"] else f"single-{entry['id']}"
+        groups[key].append(dict(entry))
+
+    response_groups = []
+    for group_key, group_entries in groups.items():
+        first_entry = group_entries[0]
+        total_amount = sum(e["amount"] for e in group_entries)
+
+        group = SocialLedgerGroup(
+            group_id=group_key,
+            date=first_entry["date"],
+            created_at=first_entry["created_at"],
+            direction=first_entry["direction"],
+            category=first_entry["category"],
+            mode=first_entry["mode"],
+            note=first_entry["note"],
+            total_amount=total_amount,
+            entries=[
+                SocialLedgerEntry(
+                    id=e["id"],
+                    person_name=e["person_name"],
+                    amount=e["amount"],
+                    note=e["note"],
+                    is_settled=bool(e["is_settled"]),
+                    settled_at=e["settled_at"],
+                )
+                for e in group_entries
+            ],
+        )
+        response_groups.append(group)
+
+    return response_groups
 
 @app.get("/social-ledger/{social_ledger_id}", response_model=SocialLedger)
 def get_social_ledger_entry(social_ledger_id: int):
@@ -601,9 +644,13 @@ def get_social_ledger_entry(social_ledger_id: int):
             direction,
             person_name,
             mode,
-            reason,
+            COALESCE(note, reason) as note,
+            category,
             is_settled,
-            settled_at
+            settled_at,
+            source,
+            group_id,
+            created_at
         FROM social_ledger
         WHERE id = ?
         """,
@@ -661,9 +708,13 @@ def settle_social_ledger_entry(social_ledger_id: int):
             direction,
             person_name,
             mode,
-            reason,
+            COALESCE(note, reason) as note,
+            category,
             is_settled,
-            settled_at
+            settled_at,
+            source,
+            group_id,
+            created_at
         FROM social_ledger
         WHERE id = ?
         """,
@@ -672,3 +723,116 @@ def settle_social_ledger_entry(social_ledger_id: int):
 
     connection.close()
     return dict(settled_social_ledger)
+
+
+@app.get("/people", response_model=list[Person])
+def get_people():
+    connection = get_db_connection()
+    people = connection.execute(
+        "SELECT id, name, created_at FROM people ORDER BY name ASC"
+    ).fetchall()
+    connection.close()
+    return [dict(person) for person in people]
+
+
+@app.post("/people", response_model=Person, status_code=status.HTTP_201_CREATED)
+def create_person(person: PersonCreate):
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO people (name) VALUES (?)", (person.name,)
+        )
+        person_id = cursor.lastrowid
+        connection.commit()
+        new_person = connection.execute(
+            "SELECT id, name, created_at FROM people WHERE id = ?", (person_id,)
+        ).fetchone()
+        connection.close()
+        return dict(new_person)
+    except sqlite3.IntegrityError:
+        connection.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Person '{person.name}' already exists.",
+        )
+
+
+@app.delete("/people/{person_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_person(person_id: int):
+    connection = get_db_connection()
+    # Optional: Check if person is used in social_ledger before deleting
+    # For now, just delete
+    person = connection.execute("SELECT id FROM people WHERE id = ?", (person_id,)).fetchone()
+    if person is None:
+        connection.close()
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    # Check if person is used in non-settled social ledger entries
+    # count = connection.execute("SELECT COUNT(*) FROM social_ledger WHERE person_name = ? AND is_settled = 0", (person['name'],)).fetchone()[0]
+    # if count > 0:
+    #     raise HTTPException(status_code=400, detail="Cannot delete person with unsettled social ledger entries.")
+
+    connection.execute("DELETE FROM people WHERE id = ?", (person_id,))
+    connection.commit()
+    connection.close()
+    return
+
+
+@app.get("/categories", response_model=list[Category])
+def get_categories():
+    connection = get_db_connection()
+    categories = connection.execute(
+        "SELECT id, name, created_at FROM categories ORDER BY name ASC"
+    ).fetchall()
+    connection.close()
+    return [dict(category) for category in categories]
+
+
+@app.post("/categories", response_model=Category, status_code=status.HTTP_201_CREATED)
+def create_category(category: CategoryCreate):
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO categories (name) VALUES (?)", (category.name,)
+        )
+        category_id = cursor.lastrowid
+        connection.commit()
+        new_category = connection.execute(
+            "SELECT id, name, created_at FROM categories WHERE id = ?", (category_id,)
+        ).fetchone()
+        connection.close()
+        return dict(new_category)
+    except sqlite3.IntegrityError:
+        connection.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category '{category.name}' already exists.",
+        )
+
+
+@app.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_category(category_id: int):
+    connection = get_db_connection()
+    category = connection.execute(
+        "SELECT id, name FROM categories WHERE id = ?", (category_id,)
+    ).fetchone()
+
+    if category is None:
+        connection.close()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Category not found."
+        )
+
+    if category["name"] in DEFAULT_CATEGORIES:
+        connection.close()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete a default category: {category['name']}.",
+        )
+
+    connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+    connection.commit()
+    connection.close()
+    return

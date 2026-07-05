@@ -3,820 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PaisaLog</title>
+    <title>Dashboard - PaisaLog</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>PaisaLog Transactions</h1>
+    <h1 id="date-heading">Loading date...</h1>
 
-    <form id="transaction-form">
-        <div>
-            <label for="date">Date</label>
-            <input type="date" id="date" name="date" required>
+    <div class="dashboard-grid">
+        <div class="dashboard-card">
+            <h3>Today's Balance</h3>
+            <p>Cash: <span id="balance-cash-opening">...</span> / <span id="balance-cash-closing">...</span></p>
+            <p>Online: <span id="balance-online-opening">...</span> / <span id="balance-online-closing">...</span></p>
         </div>
-
-        <div>
-            <label for="amount">My Share</label>
-            <input type="number" id="amount" name="amount" step="0.01" required>
+        <div class="dashboard-card">
+            <h3>Today's Spent</h3>
+            <p class="large-text" id="total-spent">...</p>
         </div>
-
-        <div>
-          <label for="others_share">Others' Share</label>
-          <input type="number" id="others_share" step="0.01" value="0">
+        <div class="dashboard-card">
+            <h3>Unsettled Social</h3>
+            <p class="large-text" id="unsettled-count">...</p>
         </div>
-
-        <div id="others_person_container" style="display:none">
-          <label for="others_person">Person Name</label>
-          <input type="text" id="others_person">
-        </div>
-
-        <div>
-          <label>Total</label>
-          <input type="text" id="total_amount" readonly>
-        </div>
-
-        <div>
-            <label for="type">Type</label>
-            <select id="type" name="type" required>
-                <option value="debit">debit</option>
-                <option value="credit">credit</option>
-                <option value="deposit">deposit</option>
-            </select>
-        </div>
-
-        <div>
-            <label for="category">Category</label>
-            <input type="text" id="category" name="category" required>
-        </div>
-
-        <div>
-            <label for="mode">Mode</label>
-            <select id="mode" name="mode" required>
-                <option value="cash">cash</option>
-                <option value="online">online</option>
-            </select>
-        </div>
-
-        <div>
-            <label for="note">Note</label>
-            <input type="text" id="note" name="note">
-        </div>
-
-        <button type="submit">Save Transaction</button>
-    </form>
-
-    <p id="message"></p>
-
-    <button type="button" id="load-transactions">Load Transactions</button>
-
-    <table border="1">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Type</th>
-                <th>Category</th>
-                <th>Mode</th>
-                <th>Note</th>
-                <th>Created At</th>
-            </tr>
-        </thead>
-        <tbody id="transactions-table-body"></tbody>
-    </table>
-
-    <h1>Daily Balance</h1>
-
-    <div class="daily-balance-panels">
-        <form id="morning-balance-form" class="daily-balance-panel">
-            <h2>Morning</h2>
-
-            <div>
-                <label for="morning-balance-date">Date</label>
-                <input type="date" id="morning-balance-date" name="date" required>
-            </div>
-
-            <div>
-                <label for="cash-opening">Cash Opening</label>
-                <input type="number" id="cash-opening" name="cash_opening" step="0.01" required>
-            </div>
-
-            <div>
-                <label for="online-opening">Online Opening</label>
-                <input type="number" id="online-opening" name="online_opening" step="0.01" required>
-            </div>
-
-            <button type="submit">Save Morning</button>
-        </form>
-
-        <form id="night-balance-form" class="daily-balance-panel">
-            <h2>Night</h2>
-
-            <div>
-                <label for="night-balance-date">Date</label>
-                <input type="date" id="night-balance-date" name="date" required>
-            </div>
-
-            <div>
-                <label for="cash-closing">Cash Closing</label>
-                <input type="number" id="cash-closing" name="cash_closing" step="0.01" required>
-            </div>
-
-            <div>
-                <label for="online-closing">Online Closing</label>
-                <input type="number" id="online-closing" name="online_closing" step="0.01" required>
-            </div>
-
-            <button type="submit">Save Night</button>
-        </form>
     </div>
 
-    <p id="daily-balance-message"></p>
-
-    <button type="button" id="load-daily-balances">Load Daily Balances</button>
-
-    <table border="1">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Cash Opening</th>
-                <th>Cash Closing</th>
-                <th>Online Opening</th>
-                <th>Online Closing</th>
-                <th>Note</th>
-            </tr>
-        </thead>
-        <tbody id="daily-balances-table-body"></tbody>
-    </table>
-
-    <h1>Social Ledger</h1>
-
-    <form id="social-ledger-form">
-        <div>
-            <label for="social-ledger-date">Date</label>
-            <input type="date" id="social-ledger-date" name="date" required>
-        </div>
-
-        <div>
-            <label for="social-ledger-amount">Amount</label>
-            <input type="number" id="social-ledger-amount" name="amount" step="0.01" required>
-        </div>
-
-        <div>
-            <label for="direction">Direction</label>
-            <select id="direction" name="direction" required>
-                <option value="i_paid">i_paid</option>
-                <option value="they_paid">they_paid</option>
-            </select>
-        </div>
-
-        <div>
-            <label for="person-name">Person Name</label>
-            <input type="text" id="person-name" name="person_name" required>
-        </div>
-
-        <div>
-            <label for="social-ledger-mode">Mode</label>
-            <select id="social-ledger-mode" name="mode" required>
-                <option value="cash">cash</option>
-                <option value="online">online</option>
-            </select>
-        </div>
-
-        <div>
-            <label for="reason">Reason</label>
-            <input type="text" id="reason" name="reason">
-        </div>
-
-        <button type="submit">Save Entry</button>
-    </form>
-
-    <p id="social-ledger-message"></p>
-
-    <button type="button" id="load-social-ledger">Load Entries</button>
-
-    <table border="1">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Direction</th>
-                <th>Person Name</th>
-                <th>Mode</th>
-                <th>Reason</th>
-                <th>Settled</th>
-                <th>Settled At</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="social-ledger-table-body"></tbody>
-    </table>
-
-    <h1>Statement</h1>
-
-    <button type="button" id="statement-7-days">7 Days</button>
-    <button type="button" id="statement-15-days">15 Days</button>
-    <button type="button" id="statement-30-days">30 Days</button>
-
-    <p id="statement-message"></p>
-
-    <h2>Summary</h2>
-    <div id="statement-summary"></div>
-
-    <h2>Transactions</h2>
-    <table border="1">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Type</th>
-                <th>Category</th>
-                <th>Mode</th>
-                <th>Note</th>
-                <th>Created At</th>
-            </tr>
-        </thead>
-        <tbody id="statement-transactions-table-body"></tbody>
-    </table>
-
-    <h1>Report</h1>
-
-    <div class="report-controls">
-        <button type="button" id="report-weekly">This Week</button>
-        <button type="button" id="report-15-days">This 15 Days</button>
-        <button type="button" id="report-monthly">This Month</button>
-
-        <div>
-            <label for="report-month">Month</label>
-            <select id="report-month">
-                <option value="1">January</option>
-                <option value="2">February</option>
-                <option value="3">March</option>
-                <option value="4">April</option>
-                <option value="5">May</option>
-                <option value="6">June</option>
-                <option value="7">July</option>
-                <option value="8">August</option>
-                <option value="9">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-            </select>
-        </div>
-
-        <div>
-            <label for="report-year">Year</label>
-            <input type="number" id="report-year" min="2000" max="2100">
-        </div>
-
-        <button type="button" id="print-report">Print</button>
+    <h2>Quick Links</h2>
+    <div class="quick-links-grid">
+        <a href="log.html" class="quick-link-card">
+            <span class="nav-icon">➕</span>
+            <span>Add Entry</span>
+        </a>
+        <a href="transactions.html" class="quick-link-card">
+            <span class="nav-icon">💸</span>
+            <span>View Txs</span>
+        </a>
+        <a href="social.html" class="quick-link-card">
+            <span class="nav-icon">👥</span>
+            <span>Social</span>
+        </a>
+        <a href="reports.html" class="quick-link-card">
+            <span class="nav-icon">📊</span>
+            <span>Reports</span>
+        </a>
     </div>
 
-    <p id="report-message"></p>
-
-    <section id="report-output">
-        <h2>Summary</h2>
-        <div id="report-summary"></div>
-
-        <h2>Social Ledger</h2>
-        <div class="report-social-lists">
-            <div>
-                <h3>Paid By Me</h3>
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>Person</th>
-                            <th>Amount</th>
-                            <th>Mode</th>
-                            <th>Settled</th>
-                        </tr>
-                    </thead>
-                    <tbody id="report-paid-by-me-table-body"></tbody>
-                </table>
-            </div>
-
-            <div>
-                <h3>Paid For Me</h3>
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>Person</th>
-                            <th>Amount</th>
-                            <th>Mode</th>
-                            <th>Settled</th>
-                        </tr>
-                    </thead>
-                    <tbody id="report-paid-for-me-table-body"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <h2>Daily Trail</h2>
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Date</th>
-                    <th>Cash Opening</th>
-                    <th>Cash Closing</th>
-                    <th>Online Opening</th>
-                    <th>Online Closing</th>
-                    <th>Note</th>
-                </tr>
-            </thead>
-            <tbody id="report-daily-trail-table-body"></tbody>
-        </table>
-
-        <h2>Full Transaction List</h2>
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Type</th>
-                    <th>Category</th>
-                    <th>Mode</th>
-                    <th>Note</th>
-                    <th>Created At</th>
-                </tr>
-            </thead>
-            <tbody id="report-transactions-table-body"></tbody>
-        </table>
-    </section>
-
+    <script src="app.js"></script>
     <script>
-        const API_BASE_URL = window.location.hostname === "127.0.0.1" 
-            ? "http://127.0.0.1:8000" 
-            : `http://${window.location.hostname}:8000`;
+        document.addEventListener('DOMContentLoaded', () => {
+            // API_BASE_URL is available globally from app.js
 
-        const transactionForm = document.getElementById("transaction-form");
-        const message = document.getElementById("message");
-        const loadTransactionsButton = document.getElementById("load-transactions");
-        const transactionsTableBody = document.getElementById("transactions-table-body");
-        const morningBalanceForm = document.getElementById("morning-balance-form");
-        const nightBalanceForm = document.getElementById("night-balance-form");
-        const dailyBalanceMessage = document.getElementById("daily-balance-message");
-        const loadDailyBalancesButton = document.getElementById("load-daily-balances");
-        const dailyBalancesTableBody = document.getElementById("daily-balances-table-body");
-        const socialLedgerForm = document.getElementById("social-ledger-form");
-        const socialLedgerMessage = document.getElementById("social-ledger-message");
-        const loadSocialLedgerButton = document.getElementById("load-social-ledger");
-        const socialLedgerTableBody = document.getElementById("social-ledger-table-body");
-        const statement7DaysButton = document.getElementById("statement-7-days");
-        const statement15DaysButton = document.getElementById("statement-15-days");
-        const statement30DaysButton = document.getElementById("statement-30-days");
-        const statementMessage = document.getElementById("statement-message");
-        const statementSummary = document.getElementById("statement-summary");
-        const statementTransactionsTableBody = document.getElementById("statement-transactions-table-body");
-        const reportWeeklyButton = document.getElementById("report-weekly");
-        const report15DaysButton = document.getElementById("report-15-days");
-        const reportMonthlyButton = document.getElementById("report-monthly");
-        const reportMonthSelect = document.getElementById("report-month");
-        const reportYearInput = document.getElementById("report-year");
-        const printReportButton = document.getElementById("print-report");
-        const reportMessage = document.getElementById("report-message");
-        const reportSummary = document.getElementById("report-summary");
-        const reportPaidByMeTableBody = document.getElementById("report-paid-by-me-table-body");
-        const reportPaidForMeTableBody = document.getElementById("report-paid-for-me-table-body");
-        const reportDailyTrailTableBody = document.getElementById("report-daily-trail-table-body");
-        const reportTransactionsTableBody = document.getElementById("report-transactions-table-body");
+            const getTodayString = () => new Date().toISOString().split('T')[0];
 
-        const today = new Date();
-        reportMonthSelect.value = String(today.getMonth() + 1);
-        reportYearInput.value = today.getFullYear();
-
-        const othersShareInput = document.getElementById('others_share');
-        othersShareInput.addEventListener('input', () => {
-            const val = parseFloat(othersShareInput.value) || 0;
-            document.getElementById('others_person_container').style.display = val > 0 ? 'block' : 'none';
-            const my = parseFloat(document.getElementById('amount').value) || 0;
-            document.getElementById('total_amount').value = (my + val).toFixed(2);
-        });
-        document.getElementById('amount').addEventListener('input', () => {
-            const my = parseFloat(document.getElementById('amount').value) || 0;
-            const other = parseFloat(document.getElementById('others_share').value) || 0;
-            document.getElementById('total_amount').value = (my + other).toFixed(2);
-        });
-
-        transactionForm.addEventListener("submit", async function (event) {
-            event.preventDefault();
-
-            const transaction = {
-                date: document.getElementById("date").value,
-                amount: Number(document.getElementById("amount").value),
-                type: document.getElementById("type").value,
-                category: document.getElementById("category").value,
-                mode: document.getElementById("mode").value,
-                note: document.getElementById("note").value,
-                others_share: parseFloat(document.getElementById('others_share').value) || 0,
-                others_person: document.getElementById('others_person').value || ''
-            };
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/transactions`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(transaction)
-                });
-
-                if (!response.ok) {
-                    throw new Error("Could not save transaction");
-                }
-
-                message.textContent = "Transaction saved successfully.";
-                transactionForm.reset();
-                loadTransactions();
-            } catch (error) {
-                message.textContent = `Error: ${error.message}`;
+            function displayTodaysDate() {
+                const heading = document.getElementById('date-heading');
+                const today = new Date();
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                heading.textContent = today.toLocaleDateString('en-US', options);
             }
-        });
 
-        loadTransactionsButton.addEventListener("click", loadTransactions);
-        loadDailyBalancesButton.addEventListener("click", loadDailyBalances);
-        loadSocialLedgerButton.addEventListener("click", loadSocialLedgerEntries);
-        statement7DaysButton.addEventListener("click", function () {
-            loadStatement(7);
-        });
-        statement15DaysButton.addEventListener("click", function () {
-            loadStatement(15);
-        });
-        statement30DaysButton.addEventListener("click", function () {
-            loadStatement(30);
-        });
-        reportWeeklyButton.addEventListener("click", function () {
-            loadReport("weekly");
-        });
-        report15DaysButton.addEventListener("click", function () {
-            loadReport("15days");
-        });
-        reportMonthlyButton.addEventListener("click", function () {
-            loadReport("monthly");
-        });
-        printReportButton.addEventListener("click", function () {
-            window.print();
-        });
+            async function fetchDashboardData() {
+                const today = getTodayString();
+                const loadingText = '...';
+                const errorText = 'Error';
 
-        morningBalanceForm.addEventListener("submit", async function (event) {
-            event.preventDefault();
+                // Get elements
+                const balanceCashOpenEl = document.getElementById('balance-cash-opening');
+                const balanceCashCloseEl = document.getElementById('balance-cash-closing');
+                const balanceOnlineOpenEl = document.getElementById('balance-online-opening');
+                const balanceOnlineCloseEl = document.getElementById('balance-online-closing');
+                const totalSpentEl = document.getElementById('total-spent');
+                const unsettledCountEl = document.getElementById('unsettled-count');
 
-            const dailyBalance = {
-                date: document.getElementById("morning-balance-date").value,
-                cash_opening: Number(document.getElementById("cash-opening").value),
-                online_opening: Number(document.getElementById("online-opening").value)
-            };
+                // Set initial loading states
+                balanceCashOpenEl.textContent = loadingText;
+                balanceCashCloseEl.textContent = loadingText;
+                balanceOnlineOpenEl.textContent = loadingText;
+                balanceOnlineCloseEl.textContent = loadingText;
+                totalSpentEl.textContent = loadingText;
+                unsettledCountEl.textContent = loadingText;
 
-            await saveDailyBalance(dailyBalance, morningBalanceForm, "Morning balance saved successfully.");
-        });
+                try {
+                    const [balanceRes, transactionsRes, socialRes] = await Promise.all([
+                        fetch(`${API_BASE_URL}/daily-balance`),
+                        fetch(`${API_BASE_URL}/transactions`),
+                        fetch(`${API_BASE_URL}/social-ledger`)
+                    ]);
 
-        nightBalanceForm.addEventListener("submit", async function (event) {
-            event.preventDefault();
-
-            const dailyBalance = {
-                date: document.getElementById("night-balance-date").value,
-                cash_closing: Number(document.getElementById("cash-closing").value),
-                online_closing: Number(document.getElementById("online-closing").value),
-            };
-
-            await saveDailyBalance(dailyBalance, nightBalanceForm, "Night balance saved successfully.");
-        });
-
-        async function saveDailyBalance(dailyBalance, form, successMessage) {
-            try {
-                const response = await fetch(`${API_BASE_URL}/daily-balance`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(dailyBalance)
-                });
-
-                if (!response.ok) {
-                    throw new Error("Could not save daily balance");
-                }
-
-                dailyBalanceMessage.textContent = successMessage;
-                form.reset();
-                loadDailyBalances();
-            } catch (error) {
-                dailyBalanceMessage.textContent = `Error: ${error.message}`;
-            }
-        }
-
-        socialLedgerForm.addEventListener("submit", async function (event) {
-            event.preventDefault();
-
-            const socialLedgerEntry = {
-                date: document.getElementById("social-ledger-date").value,
-                amount: Number(document.getElementById("social-ledger-amount").value),
-                direction: document.getElementById("direction").value,
-                person_name: document.getElementById("person-name").value,
-                mode: document.getElementById("social-ledger-mode").value,
-                reason: document.getElementById("reason").value
-            };
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/social-ledger`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(socialLedgerEntry)
-                });
-
-                if (!response.ok) {
-                    throw new Error("Could not save social ledger entry");
-                }
-
-                socialLedgerMessage.textContent = "Social ledger entry saved successfully.";
-                socialLedgerForm.reset();
-                loadSocialLedgerEntries();
-            } catch (error) {
-                socialLedgerMessage.textContent = `Error: ${error.message}`;
-            }
-        });
-
-        async function loadTransactions() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/transactions`);
-
-                if (!response.ok) {
-                    throw new Error("Could not load transactions");
-                }
-
-                const transactions = await response.json();
-                transactionsTableBody.innerHTML = "";
-
-                for (const transaction of transactions) {
-                    const row = document.createElement("tr");
-
-                    row.innerHTML = `
-                        <td>${transaction.id}</td>
-                        <td>${transaction.date}</td>
-                        <td>${transaction.amount}</td>
-                        <td>${transaction.type}</td>
-                        <td>${transaction.category}</td>
-                        <td>${transaction.mode}</td>
-                        <td>${transaction.note || ""}</td>
-                        <td>${transaction.created_at}</td>
-                    `;
-
-                    transactionsTableBody.appendChild(row);
-                }
-            } catch (error) {
-                message.textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function loadDailyBalances() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/daily-balance`);
-
-                if (!response.ok) {
-                    throw new Error("Could not load daily balances");
-                }
-
-                const dailyBalances = await response.json();
-                dailyBalancesTableBody.innerHTML = "";
-
-                for (const dailyBalance of dailyBalances) {
-                    const row = document.createElement("tr");
-
-                    row.innerHTML = `
-                        <td>${dailyBalance.id}</td>
-                        <td>${dailyBalance.date}</td>
-                        <td>${dailyBalance.cash_opening ?? ""}</td>
-                        <td>${dailyBalance.cash_closing ?? ""}</td>
-                        <td>${dailyBalance.online_opening ?? ""}</td>
-                        <td>${dailyBalance.online_closing ?? ""}</td>
-                        <td>${dailyBalance.note || ""}</td>
-                    `;
-
-                    dailyBalancesTableBody.appendChild(row);
-                }
-            } catch (error) {
-                dailyBalanceMessage.textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function loadSocialLedgerEntries() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/social-ledger`);
-
-                if (!response.ok) {
-                    throw new Error("Could not load social ledger entries");
-                }
-
-                const socialLedgerEntries = await response.json();
-                socialLedgerTableBody.innerHTML = "";
-
-                for (const entry of socialLedgerEntries) {
-                    const row = document.createElement("tr");
-                    const settleButton = entry.is_settled ? "" : `<button type="button" onclick="settleSocialLedgerEntry(${entry.id})">Settle</button>`;
-
-                    row.innerHTML = `
-                        <td>${entry.id}</td>
-                        <td>${entry.date}</td>
-                        <td>${entry.amount}</td>
-                        <td>${entry.direction}</td>
-                        <td>${entry.person_name}</td>
-                        <td>${entry.mode}</td>
-                        <td>${entry.reason || ""}</td>
-                        <td>${entry.is_settled ? "Yes" : "No"}</td>
-                        <td>${entry.settled_at || ""}</td>
-                        <td>${settleButton}</td>
-                    `;
-
-                    // Apply row classes based on direction and settled state
-                    if (entry.is_settled) {
-                        row.classList.add('ledger-settled');
-                    } else if (entry.direction === 'i_paid') {
-                        row.classList.add('ledger-i-paid');
-                    } else if (entry.direction === 'they_paid') {
-                        row.classList.add('ledger-they-paid');
+                    if (!balanceRes.ok || !transactionsRes.ok || !socialRes.ok) {
+                        throw new Error('Failed to fetch dashboard data');
                     }
 
-                    socialLedgerTableBody.appendChild(row);
+                    const balances = await balanceRes.json();
+                    const transactions = await transactionsRes.json();
+                    const socialLedger = await socialRes.json();
+
+                    // 1. Process Daily Balance
+                    const todaysBalance = balances.find(b => b.date === today);
+                    balanceCashOpenEl.textContent = todaysBalance?.cash_opening?.toFixed(2) ?? 'N/A';
+                    balanceCashCloseEl.textContent = todaysBalance?.cash_closing?.toFixed(2) ?? 'N/A';
+                    balanceOnlineOpenEl.textContent = todaysBalance?.online_opening?.toFixed(2) ?? 'N/A';
+                    balanceOnlineCloseEl.textContent = todaysBalance?.online_closing?.toFixed(2) ?? 'N/A';
+
+                    // 2. Process Total Spent
+                    const todaysDebits = transactions
+                        .filter(tx => tx.date === today && tx.type === 'debit')
+                        .reduce((sum, tx) => sum + tx.amount, 0);
+                    totalSpentEl.textContent = `₹${todaysDebits.toFixed(2)}`;
+
+                    // 3. Process Social Activity
+                    const unsettledCount = socialLedger.filter(entry => !entry.is_settled).length;
+                    unsettledCountEl.textContent = unsettledCount;
+
+                } catch (error) {
+                    console.error('Error loading dashboard:', error);
+                    balanceCashOpenEl.textContent = errorText;
+                    balanceCashCloseEl.textContent = '';
+                    balanceOnlineOpenEl.textContent = '';
+                    balanceOnlineCloseEl.textContent = '';
+                    totalSpentEl.textContent = errorText;
+                    unsettledCountEl.textContent = errorText;
                 }
-            } catch (error) {
-                socialLedgerMessage.textContent = `Error: ${error.message}`;
             }
-        }
 
-        async function settleSocialLedgerEntry(id) {
-            try {
-                const response = await fetch(`${API_BASE_URL}/social-ledger/${id}/settle`, {
-                    method: "PATCH"
-                });
-
-                if (!response.ok) {
-                    throw new Error("Could not settle social ledger entry");
-                }
-
-                socialLedgerMessage.textContent = "Social ledger entry settled successfully.";
-                loadSocialLedgerEntries();
-            } catch (error) {
-                socialLedgerMessage.textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function loadStatement(days) {
-            try {
-                const response = await fetch(`${API_BASE_URL}/statement?range=${days}`);
-
-                if (!response.ok) {
-                    throw new Error("Could not load statement");
-                }
-
-                const statement = await response.json();
-
-                statementMessage.textContent = "";
-                statementSummary.innerHTML = `
-                    <p>Date From: ${statement.date_from}</p>
-                    <p>Date To: ${statement.date_to}</p>
-                    <p>Total Debit: ${statement.total_debit}</p>
-                    <p>Total Credit: ${statement.total_credit}</p>
-                    <p>Total Deposit: ${statement.total_deposit}</p>
-                    <p>Net: ${statement.net}</p>
-                `;
-
-                statementTransactionsTableBody.innerHTML = "";
-
-                for (const transaction of statement.transactions) {
-                    const row = document.createElement("tr");
-
-                    row.innerHTML = `
-                        <td>${transaction.id}</td>
-                        <td>${transaction.date}</td>
-                        <td>${transaction.amount.toFixed(2)}</td>
-                        <td>${(transaction.others_share || 0).toFixed(2)}</td>
-                        <td>${transaction.others_person || ""}</td>
-                        <td>${transaction.type}</td>
-                        <td>${transaction.category}</td>
-                        <td>${transaction.mode}</td>
-                        <td>${transaction.note || ""}</td>
-                        <td>${transaction.created_at}</td>
-                    `;
-
-                    statementTransactionsTableBody.appendChild(row);
-                }
-            } catch (error) {
-                statementMessage.textContent = `Error: ${error.message}`;
-            }
-        }
-
-        async function loadReport(reportType) {
-            try {
-                let reportUrl = `${API_BASE_URL}/report?type=${reportType}`;
-
-                if (reportType === "monthly") {
-                    reportUrl += `&month=${reportMonthSelect.value}&year=${reportYearInput.value}`;
-                }
-
-                const response = await fetch(reportUrl);
-
-                if (!response.ok) {
-                    throw new Error("Could not load report");
-                }
-
-                const report = await response.json();
-                renderReport(report);
-            } catch (error) {
-                reportMessage.textContent = `Error: ${error.message}`;
-            }
-        }
-
-        function formatAmount(value) {
-            return Number(value || 0).toFixed(2);
-        }
-
-        function renderReport(report) {
-            reportMessage.textContent = "";
-            reportSummary.innerHTML = `
-                <div><span>Report Type</span><strong>${report.report_type}</strong></div>
-                <div><span>Date From</span><strong>${report.date_from}</strong></div>
-                <div><span>Date To</span><strong>${report.date_to}</strong></div>
-                <div><span>Opening Balance</span><strong>${formatAmount(report.opening_balance)}</strong></div>
-                <div><span>Closing Balance</span><strong>${formatAmount(report.closing_balance)}</strong></div>
-                <div><span>Total Credit</span><strong>${formatAmount(report.total_credit)}</strong></div>
-                <div><span>Total Deposit</span><strong>${formatAmount(report.total_deposit)}</strong></div>
-                <div><span>Total Debit</span><strong>${formatAmount(report.total_debit)}</strong></div>
-                <div><span>Cash Spent</span><strong>${formatAmount(report.cash_spent)}</strong></div>
-                <div><span>Online Spent</span><strong>${formatAmount(report.online_spent)}</strong></div>
-                <div><span>Unsettled Count</span><strong>${report.unsettled_count}</strong></div>
-                <div><span>Unsettled Total</span><strong>${formatAmount(report.unsettled_total)}</strong></div>
-                <div><span>Net</span><strong>${formatAmount(report.net)}</strong></div>
-                <div><span>Accountability Gap</span><strong>${formatAmount(report.accountability_gap)}</strong></div>
-            `;
-
-            renderSocialReportRows(reportPaidByMeTableBody, report.social_paid_by_me);
-            renderSocialReportRows(reportPaidForMeTableBody, report.social_paid_for_me);
-            renderReportDailyTrail(report.daily_trail);
-            renderReportTransactions(report.transactions);
-        }
-
-        function renderSocialReportRows(tableBody, entries) {
-            tableBody.innerHTML = "";
-
-            for (const entry of entries) {
-                const row = document.createElement("tr");
-
-                row.innerHTML = `
-                    <td>${entry.person_name}</td>
-                    <td>${formatAmount(entry.amount)}</td>
-                    <td>${entry.mode}</td>
-                    <td>${entry.is_settled ? "Yes" : "No"}</td>
-                `;
-
-                tableBody.appendChild(row);
-            }
-        }
-
-        function renderReportDailyTrail(dailyTrail) {
-            reportDailyTrailTableBody.innerHTML = "";
-
-            for (const dailyBalance of dailyTrail) {
-                const row = document.createElement("tr");
-
-                row.innerHTML = `
-                    <td>${dailyBalance.id}</td>
-                    <td>${dailyBalance.date}</td>
-                    <td>${dailyBalance.cash_opening ?? ""}</td>
-                    <td>${dailyBalance.cash_closing ?? ""}</td>
-                    <td>${dailyBalance.online_opening ?? ""}</td>
-                    <td>${dailyBalance.online_closing ?? ""}</td>
-                    <td>${dailyBalance.note || ""}</td>
-                `;
-
-                reportDailyTrailTableBody.appendChild(row);
-            }
-        }
-
-        function renderReportTransactions(transactions) {
-            reportTransactionsTableBody.innerHTML = "";
-
-            for (const transaction of transactions) {
-                const row = document.createElement("tr");
-
-                row.innerHTML = `
-                    <td>${transaction.id}</td>
-                    <td>${transaction.date}</td>
-                    <td>${formatAmount(transaction.amount)}</td>
-                    <td>${transaction.type}</td>
-                    <td>${transaction.category}</td>
-                    <td>${transaction.mode}</td>
-                    <td>${transaction.note || ""}</td>
-                    <td>${transaction.created_at}</td>
-                `;
-
-                reportTransactionsTableBody.appendChild(row);
-            }
-        }
+            displayTodaysDate();
+            fetchDashboardData();
+        });
     </script>
 </body>
 </html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - PaisaLog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Settings</h1>
+
+    <section>
+        <h2>Manage Categories</h2>
+        <form id="add-category-form">
+            <div>
+                <label for="new-category-name">New Category Name</label>
+                <input type="text" id="new-category-name" placeholder="e.g., Groceries" required>
+            </div>
+            <button type="submit">Add Category</button>
+        </form>
+        <p id="message"></p>
+
+        <h3>Existing Categories</h3>
+        <ul id="category-list" class="settings-list">
+            <!-- Categories will be loaded here -->
+        </ul>
+    </section>
+
+    <section>
+        <h2>Manage People</h2>
+        <form id="add-person-form">
+            <div>
+                <label for="new-person-name">New Person Name</label>
+                <input type="text" id="new-person-name" placeholder="e.g., John Doe" required>
+            </div>
+            <button type="submit">Add Person</button>
+        </form>
+        <p id="person-message"></p>
+
+        <h3>Existing People</h3>
+        <ul id="people-list" class="settings-list">
+            <!-- People will be loaded here -->
+        </ul>
+    </section>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const categoryList = document.getElementById('category-list');
+            const addCategoryForm = document.getElementById('add-category-form');
+            const newCategoryInput = document.getElementById('new-category-name');
+            const messageEl = document.getElementById('message');
+            const peopleList = document.getElementById('people-list');
+            const addPersonForm = document.getElementById('add-person-form');
+            const newPersonInput = document.getElementById('new-person-name');
+            const personMessageEl = document.getElementById('person-message');
+
+            const DEFAULT_CATEGORIES = [
+                "Food", "Transport", "Shopping", "Rent", "Stationary",
+                "Medical", "Entertainment", "Recharge", "Education", "Other"
+            ];
+
+            async function loadCategories() {
+                messageEl.textContent = 'Loading categories...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/categories`);
+                    if (!response.ok) throw new Error('Failed to load categories.');
+                    
+                    const categories = await response.json();
+                    categoryList.innerHTML = ''; // Clear list
+
+                    if (categories.length === 0) {
+                        categoryList.innerHTML = '<li>No categories found.</li>';
+                    } else {
+                        categories.forEach(category => {
+                            const li = document.createElement('li');
+                            li.textContent = category.name;
+
+                            if (DEFAULT_CATEGORIES.includes(category.name)) {
+                                const lockIcon = document.createElement('span');
+                                lockIcon.textContent = '🔒';
+                                lockIcon.classList.add('icon');
+                                li.appendChild(lockIcon);
+                            } else {
+                                const deleteBtn = document.createElement('button');
+                                deleteBtn.textContent = 'Delete';
+                                deleteBtn.classList.add('delete-btn');
+                                deleteBtn.addEventListener('click', () => deleteCategory(category.id));
+                                li.appendChild(deleteBtn);
+                            }
+                            categoryList.appendChild(li);
+                        });
+                    }
+                    messageEl.textContent = '';
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            async function deleteCategory(id) {
+                if (!confirm('Are you sure you want to delete this category?')) return;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/categories/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to delete category.');
+                    }
+                    
+                    messageEl.textContent = 'Category deleted successfully.';
+                    setTimeout(() => messageEl.textContent = '', 3000);
+                    loadCategories(); // Reload the list
+
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            addCategoryForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const name = newCategoryInput.value.trim();
+                if (!name) return;
+
+                messageEl.textContent = 'Adding...';
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/categories`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to add category.');
+                    }
+
+                    messageEl.textContent = 'Category added successfully!';
+                    newCategoryInput.value = '';
+                    setTimeout(() => messageEl.textContent = '', 3000);
+                    loadCategories(); // Reload the list
+
+                } catch (error) {
+                    messageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            });
+
+            async function loadPeople() {
+                personMessageEl.textContent = 'Loading people...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/people`);
+                    if (!response.ok) throw new Error('Failed to load people.');
+
+                    const people = await response.json();
+                    peopleList.innerHTML = ''; // Clear list
+
+                    if (people.length === 0) {
+                        peopleList.innerHTML = '<li>No people found. Add one!</li>';
+                    } else {
+                        people.forEach(person => {
+                            const li = document.createElement('li');
+                            li.textContent = person.name;
+
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.textContent = 'Delete';
+                            deleteBtn.classList.add('delete-btn');
+                            deleteBtn.addEventListener('click', () => deletePerson(person.id));
+                            li.appendChild(deleteBtn);
+
+                            peopleList.appendChild(li);
+                        });
+                    }
+                    personMessageEl.textContent = '';
+                } catch (error) {
+                    personMessageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            async function deletePerson(id) {
+                if (!confirm('Are you sure you want to delete this person? This cannot be undone.')) return;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/people/${id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to delete person.');
+                    }
+
+                    personMessageEl.textContent = 'Person deleted successfully.';
+                    setTimeout(() => personMessageEl.textContent = '', 3000);
+                    loadPeople(); // Reload the list
+
+                } catch (error) {
+                    personMessageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            addPersonForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const name = newPersonInput.value.trim();
+                if (!name) return;
+
+                personMessageEl.textContent = 'Adding...';
+                try {
+                    const response = await fetch(`${API_BASE_URL}/people`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name })
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to add person.');
+                    }
+                    personMessageEl.textContent = 'Person added successfully!';
+                    newPersonInput.value = '';
+                    setTimeout(() => personMessageEl.textContent = '', 3000);
+                    loadPeople(); // Reload the list
+                } catch (error) {
+                    personMessageEl.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            });
+
+            loadCategories(); // Initial load
+            loadPeople(); // Initial load
+        });
+    </script>
+</body>
+</html>

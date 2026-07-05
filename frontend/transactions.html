@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Entry - PaisaLog</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Add Entry</h1>
+
+    <!-- Section 1: Personal Transaction Form -->
+    <section>
+        <h2>Personal Transaction</h2>
+        <form id="transaction-form">
+            <div>
+                <label for="tx-date">Date</label>
+                <input type="date" id="tx-date" required>
+            </div>
+            <div>
+                <label for="tx-amount">Amount</label>
+                <input type="number" id="tx-amount" step="0.01" required>
+            </div>
+            <div>
+                <label for="tx-type">Type</label>
+                <select id="tx-type" required>
+                    <option value="debit">Debit</option>
+                    <option value="credit">Credit</option>
+                    <option value="deposit">Deposit</option>
+                </select>
+            </div>
+            <div>
+                <label for="tx-category">Category</label>
+                <select id="tx-category" required>
+                    <option value="">Select Category</option>
+                </select>
+            </div>
+            <div>
+                <label for="tx-mode">Mode</label>
+                <select id="tx-mode" required>
+                    <option value="cash">Cash</option>
+                    <option value="online">Online</option>
+                </select>
+            </div>
+            <div>
+                <label for="tx-note">Note</label>
+                <input type="text" id="tx-note">
+            </div>
+            <button type="submit">Save Transaction</button>
+        </form>
+        <p id="transaction-message"></p>
+    </section>
+
+    <!-- Section 2: Social Ledger Entry Form -->
+    <section>
+        <h2>Social Ledger Entry</h2>
+        <form id="social-ledger-form">
+            <div>
+                <label for="social-date">Date</label>
+                <input type="date" id="social-date" required>
+            </div>
+            <div>
+                <label for="social-direction">Direction</label>
+                <select id="social-direction" required>
+                    <option value="i_paid">I Paid</option>
+                    <option value="they_paid">They Paid</option>
+                </select>
+            </div>
+            <div>
+                <label for="social-category">Category</label>
+                <select id="social-category" required>
+                    <option value="">Select Category</option>
+                </select>
+            </div>
+            <div>
+                <label for="social-mode">Mode</label>
+                <select id="social-mode" required>
+                    <option value="cash">Cash</option>
+                    <option value="online">Online</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="social-note">Note</label>
+                <input type="text" id="social-note" placeholder="e.g. movie night, dinner, trip">
+            </div>
+
+            <h3>People Involved</h3>
+            <div id="social-splits-container">
+                <!-- Dynamic social split rows will be added here -->
+            </div>
+            <button type="button" id="add-social-split-btn" style="margin-bottom: 14px;">+ Add Person</button>
+
+            <div>
+                <label>Total Amount</label>
+                <input type="text" id="social-total" readonly>
+            </div>
+
+            <button type="submit">Save Social Entry</button>
+        </form>
+        <p id="social-ledger-message"></p>
+    </section>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let allPeople = [];
+            let allCategories = [];
+
+            const getTodayString = () => new Date().toISOString().split('T')[0];
+            const today = getTodayString();
+
+            // --- Element References ---
+            const txForm = document.getElementById('transaction-form');
+            const txMessage = document.getElementById('transaction-message');
+            const socialForm = document.getElementById('social-ledger-form');
+            const socialSplitsContainer = document.getElementById('social-splits-container');
+            const socialTotalInput = document.getElementById('social-total');
+            const socialMessage = document.getElementById('social-ledger-message');
+
+            // --- Data Loading ---
+            async function loadInitialData() {
+                try {
+                    const [peopleRes, categoriesRes] = await Promise.all([
+                        fetch(`${API_BASE_URL}/people`),
+                        fetch(`${API_BASE_URL}/categories`)
+                    ]);
+                    if (!peopleRes.ok || !categoriesRes.ok) throw new Error('Failed to load initial data.');
+
+                    allPeople = await peopleRes.json();
+                    allCategories = await categoriesRes.json();
+
+                    const txCategorySelect = document.getElementById('tx-category');
+                    const socialCategorySelect = document.getElementById('social-category');
+                    
+                    let categoryOptions = '<option value="">Select Category</option>';
+                    allCategories.forEach(cat => {
+                        categoryOptions += `<option value="${cat.name}">${cat.name}</option>`;
+                    });
+                    txCategorySelect.innerHTML = categoryOptions;
+                    socialCategorySelect.innerHTML = categoryOptions;
+
+                } catch (error) {
+                    txMessage.textContent = `Error: ${error.message}`;
+                    console.error(error);
+                }
+            }
+
+            // --- UI Update Functions ---
+            const updateSocialTotal = () => {
+                let splitsTotal = 0;
+                socialSplitsContainer.querySelectorAll('.split-amount-input').forEach(input => {
+                    splitsTotal += parseFloat(input.value) || 0;
+                });
+                socialTotalInput.value = splitsTotal.toFixed(2);
+            };
+
+            // --- Dynamic Row Creation ---
+            function createSocialSplitRow() {
+                const row = document.createElement('div');
+                row.className = 'split-row';
+
+                const personOptions = allPeople.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                row.innerHTML = `
+                    <select class="split-person-select" style="flex: 1.5;"><option value="">Select Person</option>${personOptions}</select>
+                    <input type="number" class="split-amount-input" placeholder="Amount" step="0.01" style="flex: 1;">
+                    <input type="text" class="split-note-input" placeholder="Note (optional)" style="flex: 1.5;">
+                    <button type="button" class="remove-split-btn">X</button>
+                `;
+
+                row.querySelector('.remove-split-btn').addEventListener('click', () => {
+                    row.remove();
+                    updateSocialTotal();
+                });
+                row.querySelector('.split-amount-input').addEventListener('input', updateSocialTotal);
+                socialSplitsContainer.appendChild(row);
+            }
+
+            // --- Form Submission Logic ---
+            txForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                txMessage.textContent = 'Saving...';
+
+                const payload = {
+                    date: document.getElementById('tx-date').value,
+                    amount: parseFloat(document.getElementById('tx-amount').value),
+                    type: document.getElementById('tx-type').value,
+                    category: document.getElementById('tx-category').value,
+                    mode: document.getElementById('tx-mode').value,
+                    note: document.getElementById('tx-note').value,
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/transactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to save transaction.');
+                    }
+                    txMessage.textContent = 'Transaction saved successfully!';
+                    txForm.reset();
+                    document.getElementById('tx-date').value = today;
+                    setTimeout(() => txMessage.textContent = '', 3000);
+                } catch (error) {
+                    txMessage.textContent = `Error: ${error.message}`;
+                }
+            });
+
+            socialForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                socialMessage.textContent = 'Saving...';
+
+                const splits = Array.from(socialSplitsContainer.querySelectorAll('.split-row')).map(row => ({
+                    person_id: parseInt(row.querySelector('.split-person-select').value),
+                    amount: parseFloat(row.querySelector('.split-amount-input').value),
+                    note: row.querySelector('.split-note-input').value || null
+                })).filter(s => s.person_id && s.amount > 0);
+
+                if (splits.length === 0) {
+                    socialMessage.textContent = 'Please add at least one person and amount.';
+                    setTimeout(() => socialMessage.textContent = '', 3000);
+                    return;
+                }
+
+                const payload = {
+                    date: document.getElementById('social-date').value,
+                    direction: document.getElementById('social-direction').value,
+                    category: document.getElementById('social-category').value,
+                    mode: document.getElementById('social-mode').value,
+                    note: document.getElementById('social-note').value || null,
+                    splits: splits
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/social-ledger`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const err = await response.json();
+                        throw new Error(err.detail || 'Failed to save social entry.');
+                    }
+                    socialMessage.textContent = 'Social entry saved successfully!';
+                    socialForm.reset();
+                    document.getElementById('social-note').value = '';
+                    socialSplitsContainer.innerHTML = '';
+                    document.getElementById('social-date').value = today;
+                    updateSocialTotal();
+                    setTimeout(() => socialMessage.textContent = '', 3000);
+                } catch (error) {
+                    socialMessage.textContent = `Error: ${error.message}`;
+                }
+            });
+
+            // --- Initial Setup ---
+            function initializePage() {
+                document.getElementById('tx-date').value = today;
+                document.getElementById('social-date').value = today;
+                document.getElementById('add-social-split-btn').addEventListener('click', createSocialSplitRow);
+                updateSocialTotal();
+                loadInitialData();
+            }
+
+            initializePage();
+        });
+    </script>
+</body>
+</html>
